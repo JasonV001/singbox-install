@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Sing-Box 一键安装配置脚本 v2.2.3
+# Sing-Box 一键安装配置脚本 v2.3
 # 作者: sd87671067
 # 博客: https://dlmn.lol
-# 更新时间: 2025-11-09 08:36 UTC
+# 更新时间: 2025-11-09 09:05 UTC
 
 set -e
 
@@ -28,7 +28,7 @@ print_error() { echo -e "${RED}[✗]${NC} $1"; }
 show_banner() {
     clear
     echo -e "${CYAN}╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Sing-Box 一键安装脚本 v2.2.3                   ║${NC}"
+    echo -e "${CYAN}║   Sing-Box 一键安装脚本 v2.3                     ║${NC}"
     echo -e "${CYAN}║   作者: sd87671067 | 博客: dlmn.lol              ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -110,6 +110,7 @@ gen_keys() {
     HY2_PASSWORD=$(openssl rand -base64 16)
     SS_PASSWORD=$(openssl rand -base64 32)
     SHADOWTLS_PASSWORD=$(openssl rand -hex 16)
+    ANYTLS_PASSWORD=$(openssl rand -base64 16)
     SOCKS_USER="user_$(openssl rand -hex 4)"
     SOCKS_PASS=$(openssl rand -base64 12)
     print_success "密钥生成完成"
@@ -149,8 +150,7 @@ setup_reality() {
   }
 }'
     
-    # URL 编码节点名称（保持可读性）
-    local node_name="Reality 作者博客:${AUTHOR_BLOG}"
+    local node_name="Reality 博客:${AUTHOR_BLOG}"
     LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=chrome&pbk=${REALITY_PUBLIC}&sid=${SHORT_ID}&type=tcp#${node_name// /%20}"
     PROTO="Reality"
     EXTRA_INFO="UUID: ${UUID}\nPublic Key: ${REALITY_PUBLIC}\nShort ID: ${SHORT_ID}\nSNI: ${SNI}"
@@ -181,7 +181,7 @@ setup_hysteria2() {
   }
 }'
     
-    local node_name="Hysteria2 作者博客:${AUTHOR_BLOG}"
+    local node_name="Hysteria2 博客:${AUTHOR_BLOG}"
     LINK="hysteria2://${HY2_PASSWORD}@${SERVER_IP}:${PORT}?insecure=1&sni=bing.com#${node_name// /%20}"
     PROTO="Hysteria2"
     EXTRA_INFO="密码: ${HY2_PASSWORD}\n证书: 自签证书(bing.com)"
@@ -197,7 +197,7 @@ setup_socks5() {
     
     print_info "生成配置文件..."
     
-    local node_name="SOCKS5 作者博客:${AUTHOR_BLOG}"
+    local node_name="SOCKS5 博客:${AUTHOR_BLOG}"
     
     if [[ "$ENABLE_AUTH" =~ ^[Yy]$ ]]; then
         INBOUND_JSON='{
@@ -259,16 +259,19 @@ setup_shadowtls() {
   "password": "'${SS_PASSWORD}'"
 }'
     
-    # Shadowrocket ShadowTLS v3 插件格式
-    # ss://base64(method:password)@server:port/?plugin=shadow-tls;version=3;host=domain;password=pass#name
+    # Shadowrocket ShadowTLS v3 格式
+    # ss://base64(method:password)@server:port?shadow-tls=base64(json)#name
     local ss_userinfo=$(echo -n "2022-blake3-aes-128-gcm:${SS_PASSWORD}" | base64 -w0)
-    local node_name="ShadowTLS 作者博客:${AUTHOR_BLOG}"
     
-    # 插件参数（注意格式）
-    LINK="ss://${ss_userinfo}@${SERVER_IP}:${PORT}/?plugin=shadow-tls;version=3;host=${SNI};password=${SHADOWTLS_PASSWORD}#${node_name// /%20}"
+    # 构建 JSON 插件参数
+    local plugin_json="{\"version\":\"3\",\"host\":\"${SNI}\",\"password\":\"${SHADOWTLS_PASSWORD}\"}"
+    local plugin_base64=$(echo -n "$plugin_json" | base64 -w0)
+    
+    local node_name="ShadowTLS 博客:${AUTHOR_BLOG}"
+    LINK="ss://${ss_userinfo}@${SERVER_IP}:${PORT}?shadow-tls=${plugin_base64}#${node_name// /%20}"
     
     PROTO="ShadowTLS v3"
-    EXTRA_INFO="Shadowsocks方法: 2022-blake3-aes-128-gcm\nShadowsocks密码: ${SS_PASSWORD}\nShadowTLS密码: ${SHADOWTLS_PASSWORD}\n伪装域名: ${SNI}\n\n说明: 复制链接导入 Shadowrocket"
+    EXTRA_INFO="Shadowsocks方法: 2022-blake3-aes-128-gcm\nShadowsocks密码: ${SS_PASSWORD}\nShadowTLS密码: ${SHADOWTLS_PASSWORD}\n伪装域名: ${SNI}\n\n说明: 可直接复制链接导入 Shadowrocket"
     print_success "ShadowTLS v3 配置完成"
 }
 
@@ -296,7 +299,7 @@ setup_https() {
   }
 }'
     
-    local node_name="HTTPS 作者博客:${AUTHOR_BLOG}"
+    local node_name="HTTPS 博客:${AUTHOR_BLOG}"
     LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=tls&sni=bing.com&type=tcp&allowInsecure=1#${node_name// /%20}"
     PROTO="HTTPS"
     EXTRA_INFO="UUID: ${UUID}\n证书: 自签证书(bing.com)"
@@ -313,27 +316,26 @@ setup_anytls() {
     
     print_info "生成配置文件..."
     
+    # 正确的 AnyTLS 配置（使用 anytls 类型）
     INBOUND_JSON='{
-  "type": "vless",
-  "tag": "vless-anytls-in",
+  "type": "anytls",
+  "tag": "anytls-in",
   "listen": "::",
   "listen_port": '${PORT}',
-  "users": [{"uuid": "'${UUID}'"}],
+  "users": [{"password": "'${ANYTLS_PASSWORD}'"}],
+  "padding_scheme": [],
   "tls": {
     "enabled": true,
-    "server_name": "bing.com",
     "certificate_path": "'${CERT_DIR}'/cert.pem",
     "key_path": "'${CERT_DIR}'/private.key"
-  },
-  "transport": {
-    "type": "http"
   }
 }'
     
-    local node_name="AnyTLS 作者博客:${AUTHOR_BLOG}"
-    LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=tls&sni=bing.com&type=http&allowInsecure=1#${node_name// /%20}"
+    # AnyTLS 没有标准的 URI 格式，提供配置信息
+    local node_name="AnyTLS 博客:${AUTHOR_BLOG}"
+    LINK="手动配置:\n服务器: ${SERVER_IP}\n端口: ${PORT}\n密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(bing.com)\nTLS: 启用"
     PROTO="AnyTLS"
-    EXTRA_INFO="UUID: ${UUID}\n证书: 自签证书(bing.com)"
+    EXTRA_INFO="密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(bing.com)\n\n说明: AnyTLS 需要手动配置，暂无标准剪贴板格式"
     print_success "AnyTLS 配置完成"
 }
 
@@ -481,7 +483,7 @@ show_menu() {
     echo -e "    ${CYAN}→ 标准HTTPS，可过CDN${NC}"
     echo ""
     echo -e "${GREEN}[6]${NC} AnyTLS"
-    echo -e "    ${CYAN}→ 通用TLS协议，兼容性好${NC}"
+    echo -e "    ${CYAN}→ 通用TLS协议（需手动配置）${NC}"
     echo ""
     read -p "选择 [1-6]: " choice
     
@@ -567,13 +569,19 @@ show_result() {
     fi
     
     echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
-    echo -e "${GREEN}📋 v2rayN/Shadowrocket 剪贴板链接:${NC}"
+    
+    if [[ "$PROTO" == "AnyTLS" ]]; then
+        echo -e "${GREEN}📋 配置信息:${NC}"
+    else
+        echo -e "${GREEN}📋 v2rayN/Shadowrocket 剪贴板链接:${NC}"
+    fi
+    
     echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
     echo ""
     echo -e "${YELLOW}${LINK}${NC}"
     echo ""
     
-    if command -v qrencode &>/dev/null; then
+    if [[ "$PROTO" != "AnyTLS" ]] && command -v qrencode &>/dev/null; then
         echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
         echo -e "${GREEN}📱 二维码:${NC}"
         echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
@@ -585,9 +593,14 @@ show_result() {
     echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
     echo ""
     echo -e "${YELLOW}📱 使用方法:${NC}"
-    echo -e "  1. 复制上面的链接"
-    echo -e "  2. 打开客户端（v2rayN/V2RayNG/Shadowrocket）"
-    echo -e "  3. 从剪贴板导入"
+    if [[ "$PROTO" == "AnyTLS" ]]; then
+        echo -e "  1. 手动在客户端中添加 AnyTLS 配置"
+        echo -e "  2. 填写上述服务器信息"
+    else
+        echo -e "  1. 复制上面的链接"
+        echo -e "  2. 打开客户端（v2rayN/V2RayNG/Shadowrocket）"
+        echo -e "  3. 从剪贴板导入"
+    fi
     echo ""
     echo -e "${YELLOW}⚙️  服务管理:${NC}"
     echo -e "  状态: ${CYAN}systemctl status sing-box${NC}"
