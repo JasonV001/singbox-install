@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Sing-Box 一键安装配置脚本 v2.3
+# Sing-Box 一键安装配置脚本 v2.4
 # 作者: sd87671067
 # 博客: dlmn.lol
-# 更新时间: 2025-11-09 09:18 UTC
+# 更新时间: 2025-11-09 09:39 UTC
 
 set -e
 
@@ -28,7 +28,7 @@ print_error() { echo -e "${RED}[✗]${NC} $1"; }
 show_banner() {
     clear
     echo -e "${CYAN}╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Sing-Box 一键安装脚本 v2.3                     ║${NC}"
+    echo -e "${CYAN}║   Sing-Box 一键安装脚本 v2.4                     ║${NC}"
     echo -e "${CYAN}║   作者: sd87671067 | 博客: dlmn.lol              ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -70,7 +70,7 @@ install_singbox() {
     install -Dm755 /tmp/sing-box-${LATEST}-linux-${ARCH}/sing-box ${INSTALL_DIR}/sing-box
     rm -rf /tmp/sb.tar.gz /tmp/sing-box-*
     
-    cat > /etc/systemd/system/sing-box.service << EOF
+    cat > /etc/systemd/system/sing-box.service << EOFSVC
 [Unit]
 Description=sing-box service
 After=network.target
@@ -84,7 +84,7 @@ LimitNOFILE=infinity
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOFSVC
     
     systemctl daemon-reload
     systemctl enable sing-box >/dev/null 2>&1
@@ -232,7 +232,6 @@ setup_shadowtls() {
     print_info "生成配置文件..."
     print_warning "ShadowTLS 通过伪装真实域名的TLS握手工作"
     
-    # ShadowTLS 配置
     INBOUND_JSON='{
   "type": "shadowtls",
   "tag": "shadowtls-in",
@@ -255,10 +254,7 @@ setup_shadowtls() {
   "password": "'${SS_PASSWORD}'"
 }'
     
-    # Shadowrocket ShadowTLS v3 格式
     local ss_userinfo=$(echo -n "2022-blake3-aes-128-gcm:${SS_PASSWORD}" | base64 -w0)
-    
-    # 构建 JSON 插件参数
     local plugin_json="{\"version\":\"3\",\"host\":\"${SNI}\",\"password\":\"${SHADOWTLS_PASSWORD}\"}"
     local plugin_base64=$(echo -n "$plugin_json" | base64 -w0)
     
@@ -307,9 +303,12 @@ setup_anytls() {
     print_info "生成自签证书..."
     gen_cert
     
+    print_info "生成证书指纹..."
+    CERT_SHA256=$(openssl x509 -fingerprint -noout -sha256 -in ${CERT_DIR}/cert.pem | awk -F '=' '{print $NF}')
+    CERT_BASE64=$(openssl x509 -in ${CERT_DIR}/cert.pem -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64)
+    
     print_info "生成配置文件..."
     
-    # 正确的 AnyTLS 配置
     INBOUND_JSON='{
   "type": "anytls",
   "tag": "anytls-in",
@@ -324,11 +323,43 @@ setup_anytls() {
   }
 }'
     
-    # AnyTLS 没有标准的 URI 格式
-    LINK="手动配置:\n服务器: ${SERVER_IP}\n端口: ${PORT}\n密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(itunes.apple.com)\nTLS: 启用"
+    LINK_SHADOWROCKET="anytls://${ANYTLS_PASSWORD}@${SERVER_IP}:${PORT}?udp=1&hpkp=${CERT_SHA256}#anytls-${AUTHOR_BLOG}"
+    LINK_V2RAYN="anytls://${ANYTLS_PASSWORD}@${SERVER_IP}:${PORT}?security=tls&fp=firefox&insecure=1&type=tcp#anytls-${AUTHOR_BLOG}"
+    LINK_NEKO="anytls://${ANYTLS_PASSWORD}@${SERVER_IP}:${PORT}/?insecure=1#anytls-${AUTHOR_BLOG}"
+    LINK_CLASH="- name: anytls-${AUTHOR_BLOG}
+  type: anytls
+  server: ${SERVER_IP}
+  port: ${PORT}
+  password: ${ANYTLS_PASSWORD}
+  client-fingerprint: firefox
+  certificate_pin: \"${CERT_BASE64}\""
+    
+    LINK_SINGBOX='{
+  "type": "anytls",
+  "tag": "anytls-'${AUTHOR_BLOG}'",
+  "server": "'${SERVER_IP}'",
+  "server_port": '${PORT}',
+  "password": "'${ANYTLS_PASSWORD}'",
+  "tls": {
+    "enabled": true,
+    "certificate_public_key_sha256": ["'${CERT_BASE64}'"]
+  }
+}'
+    
+    LINK="${LINK_SHADOWROCKET}"
     PROTO="AnyTLS"
-    EXTRA_INFO="密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(itunes.apple.com)\n\n说明: AnyTLS 需要手动配置，暂无标准剪贴板格式"
-    print_success "AnyTLS 配置完成"
+    
+    EXTRA_INFO="密码: ${ANYTLS_PASSWORD}
+证书: 自签证书(itunes.apple.com)
+证书指纹(SHA256): ${CERT_SHA256}
+证书指纹(Base64): ${CERT_BASE64}
+
+✨ 支持的客户端:
+  • Shadowrocket / V2rayN / NekoBox - 直接导入链接
+  • Clash / Clash.Meta - 使用下方YAML配置
+  • Sing-box客户端 - 使用下方JSON配置"
+    
+    print_success "AnyTLS 配置完成（已生成多客户端格式）"
 }
 
 parse_socks_link() {
@@ -474,8 +505,8 @@ show_menu() {
     echo -e "${GREEN}[5]${NC} HTTPS"
     echo -e "    ${CYAN}→ 标准HTTPS，可过CDN${NC}"
     echo ""
-    echo -e "${GREEN}[6]${NC} AnyTLS"
-    echo -e "    ${CYAN}→ 通用TLS协议（需手动配置）${NC}"
+    echo -e "${GREEN}[6]${NC} AnyTLS ${YELLOW}(✨ 已优化)${NC}"
+    echo -e "    ${CYAN}→ 通用TLS协议，支持多客户端自动配置${NC}"
     echo ""
     read -p "选择 [1-6]: " choice
     
@@ -499,7 +530,7 @@ generate_config() {
         outbounds='['${RELAY_JSON}', {"type": "direct", "tag": "direct"}]'
     fi
     
-    cat > ${CONFIG_FILE} << EOF
+    cat > ${CONFIG_FILE} << EOFCONFIG
 {
   "log": {
     "level": "info",
@@ -511,7 +542,7 @@ generate_config() {
     "final": "${OUTBOUND_TAG}"
   }
 }
-EOF
+EOFCONFIG
     
     print_success "配置文件生成完成"
 }
@@ -541,11 +572,11 @@ start_svc() {
 show_result() {
     clear
     echo ""
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                                                           ║${NC}"
-    echo -e "${CYAN}║               ${GREEN}🎉 配置完成！${CYAN}                              ║${NC}"
-    echo -e "${CYAN}║                                                           ║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                                                       ║${NC}"
+    echo -e "${CYAN}║               ${GREEN}🎉 配置完成！${CYAN}                          ║${NC}"
+    echo -e "${CYAN}║                                                       ║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "${YELLOW}服务器信息:${NC}"
     echo -e "  协议: ${GREEN}${PROTO}${NC}"
@@ -560,47 +591,97 @@ show_result() {
         echo ""
     fi
     
-    echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
     
     if [[ "$PROTO" == "AnyTLS" ]]; then
-        echo -e "${GREEN}📋 配置信息:${NC}"
+        echo -e "${GREEN}📋 Shadowrocket / V2rayN / NekoBox 剪贴板链接:${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK}${NC}"
+        echo ""
+        
+        if command -v qrencode &>/dev/null; then
+            echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+            echo -e "${GREEN}📱 二维码 (Shadowrocket/V2rayN/NekoBox):${NC}"
+            echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+            echo ""
+            qrencode -t ANSIUTF8 -s 1 -m 1 "${LINK}"
+            echo ""
+        fi
+        
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo -e "${GREEN}📋 V2rayN 专用链接:${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK_V2RAYN}${NC}"
+        echo ""
+        
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo -e "${GREEN}📋 NekoBox 专用链接:${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK_NEKO}${NC}"
+        echo ""
+        
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo -e "${GREEN}📋 Clash / Clash.Meta 配置 (YAML):${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK_CLASH}${NC}"
+        echo ""
+        
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo -e "${GREEN}📋 Sing-box 客户端配置 (JSON):${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK_SINGBOX}${NC}"
+        echo ""
+        
     else
-        echo -e "${GREEN}📋 v2rayN/Shadowrocket 剪贴板链接:${NC}"
+        echo -e "${GREEN}📋 剪贴板链接:${NC}"
+        echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+        echo ""
+        echo -e "${YELLOW}${LINK}${NC}"
+        echo ""
+        
+        if command -v qrencode &>/dev/null; then
+            echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+            echo -e "${GREEN}📱 二维码:${NC}"
+            echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
+            echo ""
+            qrencode -t ANSIUTF8 -s 1 -m 1 "${LINK}"
+            echo ""
+        fi
     fi
     
-    echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
-    echo ""
-    echo -e "${YELLOW}${LINK}${NC}"
-    echo ""
-    
-    if [[ "$PROTO" != "AnyTLS" ]] && command -v qrencode &>/dev/null; then
-        echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
-        echo -e "${GREEN}📱 二维码:${NC}"
-        echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
-        echo ""
-        qrencode -t ANSIUTF8 -s 1 -m 1 "${LINK}"
-        echo ""
-    fi
-    
-    echo -e "${CYAN}─────────────────────────────────────────────────────────────${NC}"
+    echo -e "${CYAN}───────────────────────────────────────────────────────${NC}"
     echo ""
     echo -e "${YELLOW}📱 使用方法:${NC}"
     if [[ "$PROTO" == "AnyTLS" ]]; then
-        echo -e "  1. 手动在客户端中添加 AnyTLS 配置"
-        echo -e "  2. 填写上述服务器信息"
+        echo -e "  ${GREEN}通用客户端 (Shadowrocket/V2rayN/NekoBox):${NC}"
+        echo -e "    1. 复制对应客户端的链接"
+        echo -e "    2. 打开客户端，从剪贴板导入"
+        echo ""
+        echo -e "  ${GREEN}Clash / Clash.Meta:${NC}"
+        echo -e "    1. 复制上方 YAML 配置"
+        echo -e "    2. 添加到配置文件的 proxies 部分"
+        echo ""
+        echo -e "  ${GREEN}Sing-box 客户端:${NC}"
+        echo -e "    1. 复制上方 JSON 配置"
+        echo -e "    2. 添加到配置文件的 outbounds 部分"
     else
-        echo -e "  1. 复制上面的链接"
-        echo -e "  2. 打开客户端（v2rayN/V2RayNG/Shadowrocket）"
-        echo -e "  3. 从剪贴板导入"
+        echo -e "  1. 复制上面的链接或扫描二维码"
+        echo -e "  2. 打开客户端导入配置"
     fi
     echo ""
     echo -e "${YELLOW}⚙️  服务管理:${NC}"
-    echo -e "  状态: ${CYAN}systemctl status sing-box${NC}"
-    echo -e "  日志: ${CYAN}journalctl -u sing-box -f${NC}"
-    echo -e "  重启: ${CYAN}systemctl restart sing-box${NC}"
+    echo -e "  查看状态: ${CYAN}systemctl status sing-box${NC}"
+    echo -e "  查看日志: ${CYAN}journalctl -u sing-box -f${NC}"
+    echo -e "  重启服务: ${CYAN}systemctl restart sing-box${NC}"
+    echo -e "  停止服务: ${CYAN}systemctl stop sing-box${NC}"
     echo ""
-    echo -e "${GREEN}💡 更多教程: ${YELLOW}https://${AUTHOR_BLOG}${NC}"
-    echo -e "${GREEN}📧 作者: ${YELLOW}sd87671067${NC}"
+    echo -e "${GREEN}💡 博客教程: ${YELLOW}https://${AUTHOR_BLOG}${NC}"
+    echo -e "${GREEN}📧 脚本作者: ${YELLOW}sd87671067${NC}"
     echo ""
 }
 
