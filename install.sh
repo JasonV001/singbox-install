@@ -4,7 +4,8 @@
 # SingBox 一键安装配置脚本
 # 作者: sd87671067
 # 博客: https://dlmn.lol
-# 支持: Reality / ShadowTLS v3 / AnyTLS+Reality
+# 日期: 2025-11-09
+# 支持: Reality / ShadowTLS v3 / AnyTLS+Reality / Reality+gRPC / Hysteria2
 # ==========================================
 
 set -e
@@ -31,15 +32,17 @@ show_banner() {
     echo -e "${CYAN}${BOLD}"
     echo "╔════════════════════════════════════════════════╗"
     echo "║                                                ║"
-    echo "║       SingBox 一键安装配置脚本 v1.0           ║"
+    echo "║       SingBox 一键安装配置脚本 v2.0           ║"
     echo "║                                                ║"
     echo "║       作者: ${PURPLE}sd87671067${CYAN}                        ║"
     echo "║       博客: ${PURPLE}https://dlmn.lol${CYAN}                 ║"
     echo "║                                                ║"
     echo "║       支持协议:                                ║"
-    echo "║       • Reality (最安全推荐)                   ║"
-    echo "║       • ShadowTLS v3 (高性能)                  ║"
-    echo "║       • AnyTLS + Reality (实验性)              ║"
+    echo "║       • Reality (推荐)                         ║"
+    echo "║       • ShadowTLS v3                           ║"
+    echo "║       • AnyTLS + Reality (实验)                ║"
+    echo "║       • Reality + gRPC (稳定)                  ║"
+    echo "║       • Hysteria2 (高速)                       ║"
     echo "║                                                ║"
     echo "╚════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -241,7 +244,7 @@ CONF
     CLIENT_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=tcp&headerType=none#${NODE_NAME}"
     
     PROTOCOL_NAME="Reality"
-    PROTOCOL_DESC="VLESS + Reality"
+    PROTOCOL_DESC="VLESS + Reality + XTLS-Vision"
     print_success "Reality 配置完成"
 }
 
@@ -340,15 +343,13 @@ setup_anytls() {
     echo -e "${CYAN}║${NC}  ${BOLD}AnyTLS + Reality 协议配置 (实验性)${NC}            ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
-    print_warning "AnyTLS + Reality 是实验性功能，可能不稳定"
-    print_info "AnyTLS 提供更强的流量混淆能力"
+    print_warning "AnyTLS + Reality 是实验性功能"
+    print_info "需要 sing-box 最新版本和专用客户端支持"
     echo ""
     
-    # 生成用户名和密码
     USERNAME="user$(openssl rand -hex 4)"
     PASSWORD=$(openssl rand -base64 16)
     
-    # 生成 Reality 密钥对
     KEYPAIR=$(sing-box generate reality-keypair)
     PRIVATE_KEY=$(echo "$KEYPAIR" | grep "PrivateKey" | awk '{print $2}')
     PUBLIC_KEY=$(echo "$KEYPAIR" | grep "PublicKey" | awk '{print $2}')
@@ -362,8 +363,7 @@ setup_anytls() {
     echo -e "  ${GREEN}1${NC}) yahoo.com           ${CYAN}(雅虎 - 推荐)${NC}"
     echo -e "  ${GREEN}2${NC}) www.microsoft.com   ${CYAN}(微软官网)${NC}"
     echo -e "  ${GREEN}3${NC}) www.apple.com       ${CYAN}(苹果官网)${NC}"
-    echo -e "  ${GREEN}4${NC}) www.cloudflare.com  ${CYAN}(Cloudflare)${NC}"
-    echo -e "  ${GREEN}5${NC}) 自定义域名"
+    echo -e "  ${GREEN}4${NC}) 自定义域名"
     echo ""
     read -p "$(echo -e ${YELLOW}请选择伪装域名 [默认: 1]: ${NC})" SNI_CHOICE
     SNI_CHOICE=${SNI_CHOICE:-1}
@@ -372,8 +372,7 @@ setup_anytls() {
         1) SNI="yahoo.com" ;;
         2) SNI="www.microsoft.com" ;;
         3) SNI="www.apple.com" ;;
-        4) SNI="www.cloudflare.com" ;;
-        5) 
+        4) 
             read -p "$(echo -e ${YELLOW}请输入自定义域名: ${NC})" SNI
             ;;
         *) SNI="yahoo.com" ;;
@@ -451,12 +450,215 @@ CONF
 )
     
     NODE_NAME="AnyTLS+Reality|博客:dlmn.lol"
-    # AnyTLS 客户端链接格式
     CLIENT_LINK="anytls://${USERNAME}:${PASSWORD}@${SERVER_IP}:${PORT}?sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#${NODE_NAME}"
     
     PROTOCOL_NAME="AnyTLS+Reality"
     PROTOCOL_DESC="AnyTLS + Reality (实验性)"
     print_success "AnyTLS + Reality 配置完成"
+}
+
+# Reality + gRPC 配置
+setup_reality_grpc() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}Reality + gRPC 协议配置${NC}                       ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
+    echo ""
+    print_info "Reality + gRPC 提供更好的抗审查能力"
+    print_info "gRPC 传输更稳定，适合复杂网络环境"
+    echo ""
+    
+    UUID=$(sing-box generate uuid)
+    KEYPAIR=$(sing-box generate reality-keypair)
+    PRIVATE_KEY=$(echo "$KEYPAIR" | grep "PrivateKey" | awk '{print $2}')
+    PUBLIC_KEY=$(echo "$KEYPAIR" | grep "PublicKey" | awk '{print $2}')
+    
+    read -p "$(echo -e ${YELLOW}请输入监听端口 [默认: 443]: ${NC})" PORT
+    PORT=${PORT:-443}
+    
+    echo ""
+    echo -e "${CYAN}═══════════ 选择伪装域名 ═══════════${NC}"
+    echo ""
+    echo -e "  ${GREEN}1${NC}) www.microsoft.com    ${CYAN}(微软官网)${NC}"
+    echo -e "  ${GREEN}2${NC}) itunes.apple.com     ${CYAN}(苹果 iTunes - 推荐)${NC}"
+    echo -e "  ${GREEN}3${NC}) www.lovelive-anime.jp ${CYAN}(日本动漫网站)${NC}"
+    echo -e "  ${GREEN}4${NC}) gateway.icloud.com   ${CYAN}(苹果 iCloud)${NC}"
+    echo -e "  ${GREEN}5${NC}) 自定义域名"
+    echo ""
+    read -p "$(echo -e ${YELLOW}请选择伪装域名 [默认: 2]: ${NC})" SNI_CHOICE
+    SNI_CHOICE=${SNI_CHOICE:-2}
+    
+    case $SNI_CHOICE in
+        1) SNI="www.microsoft.com" ;;
+        2) SNI="itunes.apple.com" ;;
+        3) SNI="www.lovelive-anime.jp" ;;
+        4) SNI="gateway.icloud.com" ;;
+        5) 
+            read -p "$(echo -e ${YELLOW}请输入自定义域名: ${NC})" SNI
+            ;;
+        *) SNI="itunes.apple.com" ;;
+    esac
+    
+    SHORT_ID=$(openssl rand -hex 8)
+    GRPC_SERVICE="grpc$(openssl rand -hex 4)"
+    
+    CONFIG=$(cat <<CONF
+{
+    "log": {
+        "level": "info",
+        "timestamp": true
+    },
+    "dns": {
+        "servers": [
+            {
+                "tag": "google",
+                "address": "8.8.8.8"
+            }
+        ]
+    },
+    "inbounds": [
+        {
+            "type": "vless",
+            "tag": "vless-in",
+            "listen": "::",
+            "listen_port": ${PORT},
+            "users": [
+                {
+                    "uuid": "${UUID}",
+                    "flow": ""
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "${SNI}",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "${SNI}",
+                        "server_port": 443
+                    },
+                    "private_key": "${PRIVATE_KEY}",
+                    "short_id": ["${SHORT_ID}"]
+                }
+            },
+            "transport": {
+                "type": "grpc",
+                "service_name": "${GRPC_SERVICE}"
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "direct",
+            "tag": "direct"
+        },
+        {
+            "type": "block",
+            "tag": "block"
+        }
+    ],
+    "route": {
+        "rules": [],
+        "final": "direct"
+    }
+}
+CONF
+)
+    
+    NODE_NAME="Reality-gRPC|博客:dlmn.lol"
+    CLIENT_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=reality&sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}&type=grpc&serviceName=${GRPC_SERVICE}&mode=gun#${NODE_NAME}"
+    
+    PROTOCOL_NAME="Reality-gRPC"
+    PROTOCOL_DESC="VLESS + Reality + gRPC"
+    print_success "Reality + gRPC 配置完成"
+}
+
+# Hysteria2 配置
+setup_hysteria2() {
+    clear
+    echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}Hysteria2 协议配置${NC}                            ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
+    echo ""
+    print_info "Hysteria2 是高速代理协议，适合高延迟网络"
+    print_info "使用自签证书，域名: bing.com"
+    echo ""
+    
+    PASSWORD=$(openssl rand -base64 16)
+    
+    read -p "$(echo -e ${YELLOW}请输入监听端口 [默认: 443]: ${NC})" PORT
+    PORT=${PORT:-443}
+    
+    # 生成自签证书
+    print_info "生成自签证书..."
+    mkdir -p /etc/sing-box/certs
+    
+    openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
+        -keyout /etc/sing-box/certs/private.key \
+        -out /etc/sing-box/certs/cert.pem \
+        -subj "/CN=bing.com" \
+        -days 36500 2>/dev/null
+    
+    chmod 600 /etc/sing-box/certs/private.key
+    
+    CONFIG=$(cat <<CONF
+{
+    "log": {
+        "level": "info",
+        "timestamp": true
+    },
+    "dns": {
+        "servers": [
+            {
+                "tag": "google",
+                "address": "8.8.8.8"
+            }
+        ]
+    },
+    "inbounds": [
+        {
+            "type": "hysteria2",
+            "tag": "hy2-in",
+            "listen": "::",
+            "listen_port": ${PORT},
+            "users": [
+                {
+                    "password": "${PASSWORD}"
+                }
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "bing.com",
+                "key_path": "/etc/sing-box/certs/private.key",
+                "certificate_path": "/etc/sing-box/certs/cert.pem"
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "type": "direct",
+            "tag": "direct"
+        },
+        {
+            "type": "block",
+            "tag": "block"
+        }
+    ],
+    "route": {
+        "rules": [],
+        "final": "direct"
+    }
+}
+CONF
+)
+    
+    NODE_NAME="Hysteria2|博客:dlmn.lol"
+    CLIENT_LINK="hysteria2://${PASSWORD}@${SERVER_IP}:${PORT}?sni=bing.com&insecure=1#${NODE_NAME}"
+    
+    PASSWORD_INFO="Password: ${PASSWORD}"
+    PROTOCOL_NAME="Hysteria2"
+    PROTOCOL_DESC="Hysteria2 (自签证书 bing.com)"
+    print_success "Hysteria2 配置完成"
 }
 
 # 保存配置
@@ -487,6 +689,7 @@ start_service() {
 setup_firewall() {
     if command -v ufw &> /dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
         ufw allow ${PORT}/tcp > /dev/null 2>&1
+        ufw allow ${PORT}/udp > /dev/null 2>&1
         print_success "防火墙规则已添加"
     fi
 }
@@ -510,11 +713,14 @@ show_result() {
     echo -e "  ${CYAN}📝 协议说明:${NC} ${YELLOW}${PROTOCOL_DESC}${NC}"
     echo -e "  ${CYAN}🔌 监听端口:${NC} ${YELLOW}${PORT}${NC}"
     
-    if [ "$PROTOCOL_NAME" = "Reality" ]; then
+    if [[ "$PROTOCOL_NAME" == "Reality" || "$PROTOCOL_NAME" == "Reality-gRPC" ]]; then
         echo -e "  ${CYAN}🆔 UUID:${NC} ${YELLOW}${UUID}${NC}"
         echo -e "  ${CYAN}🔑 公钥:${NC} ${YELLOW}${PUBLIC_KEY}${NC}"
         echo -e "  ${CYAN}🎯 Short ID:${NC} ${YELLOW}${SHORT_ID}${NC}"
         echo -e "  ${CYAN}🌐 SNI:${NC} ${YELLOW}${SNI}${NC}"
+        if [ "$PROTOCOL_NAME" = "Reality-gRPC" ]; then
+            echo -e "  ${CYAN}📡 gRPC Service:${NC} ${YELLOW}${GRPC_SERVICE}${NC}"
+        fi
     elif [ "$PROTOCOL_NAME" = "ShadowTLS v3" ]; then
         echo -e "  ${CYAN}🔒 ${YELLOW}${PASSWORD_INFO}${NC}"
         echo -e "  ${CYAN}🌐 伪装域名:${NC} ${YELLOW}${HANDSHAKE_SERVER}${NC}"
@@ -524,6 +730,10 @@ show_result() {
         echo -e "  ${CYAN}🔑 公钥:${NC} ${YELLOW}${PUBLIC_KEY}${NC}"
         echo -e "  ${CYAN}🎯 Short ID:${NC} ${YELLOW}${SHORT_ID}${NC}"
         echo -e "  ${CYAN}🌐 SNI:${NC} ${YELLOW}${SNI}${NC}"
+    elif [ "$PROTOCOL_NAME" = "Hysteria2" ]; then
+        echo -e "  ${CYAN}🔒 ${YELLOW}${PASSWORD_INFO}${NC}"
+        echo -e "  ${CYAN}🌐 SNI:${NC} ${YELLOW}bing.com${NC}"
+        echo -e "  ${CYAN}📜 证书:${NC} ${YELLOW}自签证书${NC}"
     fi
     
     echo ""
@@ -580,13 +790,16 @@ show_result() {
 协议说明: ${PROTOCOL_DESC}
 监听端口: ${PORT}
 
-$(if [ "$PROTOCOL_NAME" = "Reality" ]; then
+$(if [[ "$PROTOCOL_NAME" == "Reality" || "$PROTOCOL_NAME" == "Reality-gRPC" ]]; then
     echo "【Reality 配置】"
     echo "UUID: ${UUID}"
     echo "私钥: ${PRIVATE_KEY}"
     echo "公钥: ${PUBLIC_KEY}"
     echo "Short ID: ${SHORT_ID}"
     echo "SNI: ${SNI}"
+    if [ "$PROTOCOL_NAME" = "Reality-gRPC" ]; then
+        echo "gRPC Service: ${GRPC_SERVICE}"
+    fi
 elif [ "$PROTOCOL_NAME" = "ShadowTLS v3" ]; then
     echo "【ShadowTLS 配置】"
     echo "${PASSWORD_INFO}"
@@ -599,8 +812,12 @@ elif [ "$PROTOCOL_NAME" = "AnyTLS+Reality" ]; then
     echo "公钥: ${PUBLIC_KEY}"
     echo "Short ID: ${SHORT_ID}"
     echo "SNI: ${SNI}"
-    echo ""
-    echo "注意: AnyTLS 需要支持的客户端"
+elif [ "$PROTOCOL_NAME" = "Hysteria2" ]; then
+    echo "【Hysteria2 配置】"
+    echo "${PASSWORD_INFO}"
+    echo "SNI: bing.com"
+    echo "证书: 自签证书"
+    echo "证书位置: /etc/sing-box/certs/"
 fi)
 
 【客户端链接】
@@ -608,10 +825,8 @@ ${CLIENT_LINK}
 
 【节点备注】
 格式: ${PROTOCOL_NAME}|博客:dlmn.lol
-说明: 导入客户端后，节点名称会显示此备注
 
 【二维码文件】
-终端查看: 已显示在安装完成界面
 PNG 文件: ${QR_FILE}
 下载命令: scp root@${SERVER_IP}:${QR_FILE} ./
 
@@ -646,40 +861,42 @@ main_menu() {
     echo -e "${CYAN}${BOLD}═══════════════ 请选择代理协议 ═══════════════${NC}"
     echo ""
     echo -e "  ${GREEN}${BOLD}1${NC}) ${BOLD}Reality${NC}"
-    echo -e "     ${CYAN}├─${NC} 最新、最安全的代理协议"
-    echo -e "     ${CYAN}├─${NC} 基于真实 TLS 指纹伪装"
-    echo -e "     ${CYAN}├─${NC} 抗审查能力极强"
+    echo -e "     ${CYAN}├─${NC} VLESS + Reality + XTLS-Vision"
+    echo -e "     ${CYAN}├─${NC} 最安全、最稳定"
     echo -e "     ${CYAN}└─${NC} ${GREEN}★ 强烈推荐 ★${NC}"
     echo ""
     echo -e "  ${GREEN}${BOLD}2${NC}) ${BOLD}ShadowTLS v3${NC}"
-    echo -e "     ${CYAN}├─${NC} 高性能 TLS 伪装协议"
-    echo -e "     ${CYAN}├─${NC} 伪装成正常 HTTPS 流量"
-    echo -e "     ${CYAN}└─${NC} 适合高速传输场景"
+    echo -e "     ${CYAN}├─${NC} Shadowsocks + ShadowTLS v3"
+    echo -e "     ${CYAN}├─${NC} 高性能 TLS 伪装"
+    echo -e "     ${CYAN}└─${NC} 适合高速传输"
     echo ""
     echo -e "  ${GREEN}${BOLD}3${NC}) ${BOLD}AnyTLS + Reality${NC} ${YELLOW}(实验性)${NC}"
-    echo -e "     ${CYAN}├─${NC} AnyTLS 流量混淆 + Reality 伪装"
+    echo -e "     ${CYAN}├─${NC} AnyTLS 流量混淆 + Reality"
     echo -e "     ${CYAN}├─${NC} 更强的抗审查能力"
-    echo -e "     ${CYAN}└─${NC} ${YELLOW}需要专用客户端支持${NC}"
+    echo -e "     ${CYAN}└─${NC} ${YELLOW}需要专用客户端${NC}"
+    echo ""
+    echo -e "  ${GREEN}${BOLD}4${NC}) ${BOLD}Reality + gRPC${NC}"
+    echo -e "     ${CYAN}├─${NC} VLESS + Reality + gRPC"
+    echo -e "     ${CYAN}├─${NC} gRPC 传输更稳定"
+    echo -e "     ${CYAN}└─${NC} ${GREEN}★ 推荐备用方案 ★${NC}"
+    echo ""
+    echo -e "  ${GREEN}${BOLD}5${NC}) ${BOLD}Hysteria2${NC}"
+    echo -e "     ${CYAN}├─${NC} 基于 QUIC 的高速协议"
+    echo -e "     ${CYAN}├─${NC} 自签证书 (bing.com)"
+    echo -e "     ${CYAN}└─${NC} 适合高延迟网络"
     echo ""
     echo -e "  ${RED}${BOLD}0${NC}) ${BOLD}退出脚本${NC}"
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo ""
-    read -p "$(echo -e ${YELLOW}${BOLD}请输入选项 [1-3]: ${NC})" choice
+    read -p "$(echo -e ${YELLOW}${BOLD}请输入选项 [1-5]: ${NC})" choice
     
     case $choice in
-        1) 
-            PROTOCOL_TYPE="Reality"
-            setup_reality 
-            ;;
-        2) 
-            PROTOCOL_TYPE="ShadowTLS v3"
-            setup_shadowtls 
-            ;;
-        3) 
-            PROTOCOL_TYPE="AnyTLS+Reality"
-            setup_anytls 
-            ;;
+        1) setup_reality ;;
+        2) setup_shadowtls ;;
+        3) setup_anytls ;;
+        4) setup_reality_grpc ;;
+        5) setup_hysteria2 ;;
         0) 
             echo ""
             echo -e "${CYAN}感谢使用！"
@@ -689,7 +906,7 @@ main_menu() {
             exit 0 
             ;;
         *) 
-            print_error "无效选择，请输入 1-3"
+            print_error "无效选择，请输入 1-5"
             sleep 2
             main_menu
             ;;
