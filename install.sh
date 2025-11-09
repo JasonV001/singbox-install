@@ -4,7 +4,7 @@
 # SingBox 一键安装配置脚本
 # 作者: sd87671067
 # 博客: https://dlmn.lol
-# 支持: Reality / ShadowTLS v3 / AnyTLS
+# 支持: Reality / ShadowTLS v3 / AnyTLS+Reality
 # ==========================================
 
 set -e
@@ -39,7 +39,7 @@ show_banner() {
     echo "║       支持协议:                                ║"
     echo "║       • Reality (最安全推荐)                   ║"
     echo "║       • ShadowTLS v3 (高性能)                  ║"
-    echo "║       • AnyTLS (实验性)                        ║"
+    echo "║       • AnyTLS + Reality (实验性)              ║"
     echo "║                                                ║"
     echo "╚════════════════════════════════════════════════╝"
     echo -e "${NC}"
@@ -76,7 +76,7 @@ install_dependencies() {
     apt update -y > /dev/null 2>&1
 
     print_info "安装必要依赖..."
-    apt install -y curl wget tar gzip qrencode > /dev/null 2>&1
+    apt install -y curl wget tar gzip qrencode openssl > /dev/null 2>&1
 
     if command -v sing-box &> /dev/null; then
         print_success "sing-box 已安装"
@@ -333,24 +333,53 @@ CONF
     print_success "ShadowTLS v3 配置完成"
 }
 
-# AnyTLS 配置
+# AnyTLS + Reality 配置
 setup_anytls() {
     clear
     echo -e "${CYAN}╔════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${NC}  ${BOLD}AnyTLS 协议配置 (实验性)${NC}                      ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}AnyTLS + Reality 协议配置 (实验性)${NC}            ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════╝${NC}"
     echo ""
-    print_warning "AnyTLS 是实验性功能，可能不稳定"
-    print_info "AnyTLS 基于 VLESS + HTTP 传输"
+    print_warning "AnyTLS + Reality 是实验性功能，可能不稳定"
+    print_info "AnyTLS 提供更强的流量混淆能力"
     echo ""
     
-    UUID=$(sing-box generate uuid)
+    # 生成用户名和密码
+    USERNAME="user$(openssl rand -hex 4)"
+    PASSWORD=$(openssl rand -base64 16)
+    
+    # 生成 Reality 密钥对
+    KEYPAIR=$(sing-box generate reality-keypair)
+    PRIVATE_KEY=$(echo "$KEYPAIR" | grep "PrivateKey" | awk '{print $2}')
+    PUBLIC_KEY=$(echo "$KEYPAIR" | grep "PublicKey" | awk '{print $2}')
     
     read -p "$(echo -e ${YELLOW}请输入监听端口 [默认: 443]: ${NC})" PORT
     PORT=${PORT:-443}
     
-    read -p "$(echo -e ${YELLOW}请输入伪装域名 [默认: www.bing.com]: ${NC})" TLS_SERVER
-    TLS_SERVER=${TLS_SERVER:-www.bing.com}
+    echo ""
+    echo -e "${CYAN}═══════════ 选择伪装域名 ═══════════${NC}"
+    echo ""
+    echo -e "  ${GREEN}1${NC}) yahoo.com           ${CYAN}(雅虎 - 推荐)${NC}"
+    echo -e "  ${GREEN}2${NC}) www.microsoft.com   ${CYAN}(微软官网)${NC}"
+    echo -e "  ${GREEN}3${NC}) www.apple.com       ${CYAN}(苹果官网)${NC}"
+    echo -e "  ${GREEN}4${NC}) www.cloudflare.com  ${CYAN}(Cloudflare)${NC}"
+    echo -e "  ${GREEN}5${NC}) 自定义域名"
+    echo ""
+    read -p "$(echo -e ${YELLOW}请选择伪装域名 [默认: 1]: ${NC})" SNI_CHOICE
+    SNI_CHOICE=${SNI_CHOICE:-1}
+    
+    case $SNI_CHOICE in
+        1) SNI="yahoo.com" ;;
+        2) SNI="www.microsoft.com" ;;
+        3) SNI="www.apple.com" ;;
+        4) SNI="www.cloudflare.com" ;;
+        5) 
+            read -p "$(echo -e ${YELLOW}请输入自定义域名: ${NC})" SNI
+            ;;
+        *) SNI="yahoo.com" ;;
+    esac
+    
+    SHORT_ID=$(openssl rand -hex 8)
     
     CONFIG=$(cat <<CONF
 {
@@ -368,19 +397,38 @@ setup_anytls() {
     },
     "inbounds": [
         {
-            "type": "vless",
-            "tag": "vless-in",
+            "type": "anytls",
             "listen": "::",
             "listen_port": ${PORT},
             "users": [
                 {
-                    "uuid": "${UUID}"
+                    "name": "${USERNAME}",
+                    "password": "${PASSWORD}"
                 }
             ],
-            "transport": {
-                "type": "http",
-                "host": ["${TLS_SERVER}"],
-                "path": "/"
+            "padding_scheme": [
+                "stop=8",
+                "0=30-30",
+                "1=100-400",
+                "2=400-500,c,500-1000,c,500-1000,c,500-1000,c,500-1000",
+                "3=9-9,500-1000",
+                "4=500-1000",
+                "5=500-1000",
+                "6=500-1000",
+                "7=500-1000"
+            ],
+            "tls": {
+                "enabled": true,
+                "server_name": "${SNI}",
+                "reality": {
+                    "enabled": true,
+                    "handshake": {
+                        "server": "${SNI}",
+                        "server_port": 443
+                    },
+                    "private_key": "${PRIVATE_KEY}",
+                    "short_id": ["${SHORT_ID}"]
+                }
             }
         }
     ],
@@ -402,13 +450,13 @@ setup_anytls() {
 CONF
 )
     
-    NODE_NAME="AnyTLS|博客:dlmn.lol"
-    # AnyTLS 使用 VLESS + HTTP 传输
-    CLIENT_LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&type=http&host=${TLS_SERVER}&path=%2F&security=none#${NODE_NAME}"
+    NODE_NAME="AnyTLS+Reality|博客:dlmn.lol"
+    # AnyTLS 客户端链接格式
+    CLIENT_LINK="anytls://${USERNAME}:${PASSWORD}@${SERVER_IP}:${PORT}?sni=${SNI}&fp=chrome&pbk=${PUBLIC_KEY}&sid=${SHORT_ID}#${NODE_NAME}"
     
-    PROTOCOL_NAME="AnyTLS"
-    PROTOCOL_DESC="VLESS + HTTP 传输 (实验性)"
-    print_success "AnyTLS 配置完成"
+    PROTOCOL_NAME="AnyTLS+Reality"
+    PROTOCOL_DESC="AnyTLS + Reality (实验性)"
+    print_success "AnyTLS + Reality 配置完成"
 }
 
 # 保存配置
@@ -470,17 +518,23 @@ show_result() {
     elif [ "$PROTOCOL_NAME" = "ShadowTLS v3" ]; then
         echo -e "  ${CYAN}🔒 ${YELLOW}${PASSWORD_INFO}${NC}"
         echo -e "  ${CYAN}🌐 伪装域名:${NC} ${YELLOW}${HANDSHAKE_SERVER}${NC}"
-    elif [ "$PROTOCOL_NAME" = "AnyTLS" ]; then
-        echo -e "  ${CYAN}🆔 UUID:${NC} ${YELLOW}${UUID}${NC}"
-        echo -e "  ${CYAN}🌐 伪装域名:${NC} ${YELLOW}${TLS_SERVER}${NC}"
-        echo -e "  ${YELLOW}⚠️  注意: 链接协议显示为 vless 是正常的${NC}"
-        echo -e "  ${YELLOW}   (AnyTLS = VLESS + HTTP传输)${NC}"
+    elif [ "$PROTOCOL_NAME" = "AnyTLS+Reality" ]; then
+        echo -e "  ${CYAN}👤 用户名:${NC} ${YELLOW}${USERNAME}${NC}"
+        echo -e "  ${CYAN}🔒 密码:${NC} ${YELLOW}${PASSWORD}${NC}"
+        echo -e "  ${CYAN}🔑 公钥:${NC} ${YELLOW}${PUBLIC_KEY}${NC}"
+        echo -e "  ${CYAN}🎯 Short ID:${NC} ${YELLOW}${SHORT_ID}${NC}"
+        echo -e "  ${CYAN}🌐 SNI:${NC} ${YELLOW}${SNI}${NC}"
     fi
     
     echo ""
     echo -e "${GREEN}${BOLD}═══════════════ 📱 客户端配置 ═══════════════${NC}"
-    echo -e "${CYAN}复制以下链接到 v2rayN 导入:${NC}"
+    echo -e "${CYAN}复制以下链接到客户端导入:${NC}"
     echo -e "${PURPLE}节点备注: ${PROTOCOL_NAME}|博客:dlmn.lol${NC}"
+    
+    if [ "$PROTOCOL_NAME" = "AnyTLS+Reality" ]; then
+        echo -e "${YELLOW}⚠️  注意: AnyTLS 需要支持的客户端${NC}"
+    fi
+    
     echo ""
     echo -e "${YELLOW}${CLIENT_LINK}${NC}"
     echo ""
@@ -537,13 +591,16 @@ elif [ "$PROTOCOL_NAME" = "ShadowTLS v3" ]; then
     echo "【ShadowTLS 配置】"
     echo "${PASSWORD_INFO}"
     echo "伪装域名: ${HANDSHAKE_SERVER}"
-elif [ "$PROTOCOL_NAME" = "AnyTLS" ]; then
-    echo "【AnyTLS 配置】"
-    echo "UUID: ${UUID}"
-    echo "伪装域名: ${TLS_SERVER}"
+elif [ "$PROTOCOL_NAME" = "AnyTLS+Reality" ]; then
+    echo "【AnyTLS + Reality 配置】"
+    echo "用户名: ${USERNAME}"
+    echo "密码: ${PASSWORD}"
+    echo "私钥: ${PRIVATE_KEY}"
+    echo "公钥: ${PUBLIC_KEY}"
+    echo "Short ID: ${SHORT_ID}"
+    echo "SNI: ${SNI}"
     echo ""
-    echo "注意: AnyTLS 基于 VLESS + HTTP 传输"
-    echo "客户端链接显示 vless:// 是正常的"
+    echo "注意: AnyTLS 需要支持的客户端"
 fi)
 
 【客户端链接】
@@ -551,7 +608,7 @@ ${CLIENT_LINK}
 
 【节点备注】
 格式: ${PROTOCOL_NAME}|博客:dlmn.lol
-说明: 导入v2rayN后，节点名称会显示此备注
+说明: 导入客户端后，节点名称会显示此备注
 
 【二维码文件】
 终端查看: 已显示在安装完成界面
@@ -599,10 +656,10 @@ main_menu() {
     echo -e "     ${CYAN}├─${NC} 伪装成正常 HTTPS 流量"
     echo -e "     ${CYAN}└─${NC} 适合高速传输场景"
     echo ""
-    echo -e "  ${GREEN}${BOLD}3${NC}) ${BOLD}AnyTLS${NC} ${YELLOW}(实验性)${NC}"
-    echo -e "     ${CYAN}├─${NC} 基于 VLESS + HTTP 传输"
-    echo -e "     ${CYAN}├─${NC} 灵活的传输方式"
-    echo -e "     ${CYAN}└─${NC} ${YELLOW}可能不稳定${NC}"
+    echo -e "  ${GREEN}${BOLD}3${NC}) ${BOLD}AnyTLS + Reality${NC} ${YELLOW}(实验性)${NC}"
+    echo -e "     ${CYAN}├─${NC} AnyTLS 流量混淆 + Reality 伪装"
+    echo -e "     ${CYAN}├─${NC} 更强的抗审查能力"
+    echo -e "     ${CYAN}└─${NC} ${YELLOW}需要专用客户端支持${NC}"
     echo ""
     echo -e "  ${RED}${BOLD}0${NC}) ${BOLD}退出脚本${NC}"
     echo ""
@@ -620,7 +677,7 @@ main_menu() {
             setup_shadowtls 
             ;;
         3) 
-            PROTOCOL_TYPE="AnyTLS"
+            PROTOCOL_TYPE="AnyTLS+Reality"
             setup_anytls 
             ;;
         0) 
