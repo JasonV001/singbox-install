@@ -153,7 +153,7 @@ setup_reality() {
     LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=chrome&pbk=${REALITY_PUBLIC}&sid=${SHORT_ID}&type=tcp#${AUTHOR_BLOG}"
     
     # Loon配置格式
-    LINK_LOON="${AUTHOR_BLOG} = VLESS,${SERVER_IP},${PORT},\"${UUID}\",transport=tcp,flow=xtls-rprx-vision,public-key=\"${REALITY_PUBLIC}\",short-id=${SHORT_ID},udp=true,block-quic=true,over-tls=true,sni=${SNI},ip-mode=prefer-v4"
+    LINK_LOON="${AUTHOR_BLOG} = VLESS,${SERVER_IP},${PORT},\"${UUID}\",transport=tcp,flow=xtls-rprx-vision,public-key=\"${REALITY_PUBLIC}\",short-id=${SHORT_ID},udp=true,block-quic=true,over-tls=true,tls-name=${SNI}"
     
     PROTO="Reality"
     EXTRA_INFO="UUID: ${UUID}\nPublic Key: ${REALITY_PUBLIC}\nShort ID: ${SHORT_ID}\nSNI: ${SNI}"
@@ -205,8 +205,7 @@ setup_socks5() {
   "tag": "socks-in",
   "listen": "::",
   "listen_port": '${PORT}',
-  "users": [{"username": "'${SOCKS_USER}'", "password": "'${SOCKS_PASS}'"}],
-  "udp": true
+  "users": [{"username": "'${SOCKS_USER}'", "password": "'${SOCKS_PASS}'"}]
 }'
         LINK="socks5://${SOCKS_USER}:${SOCKS_PASS}@${SERVER_IP}:${PORT}#${AUTHOR_BLOG}"
         EXTRA_INFO="用户名: ${SOCKS_USER}\n密码: ${SOCKS_PASS}"
@@ -215,8 +214,7 @@ setup_socks5() {
   "type": "socks",
   "tag": "socks-in",
   "listen": "::",
-  "listen_port": '${PORT}',
-  "udp": true
+  "listen_port": '${PORT}'
 }'
         LINK="socks5://${SERVER_IP}:${PORT}#${AUTHOR_BLOG}"
         EXTRA_INFO="无认证"
