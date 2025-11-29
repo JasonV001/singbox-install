@@ -22,10 +22,7 @@ print_error() { echo -e "${RED}[✗]${NC} $1"; }
 
 show_banner() {
     clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Sing-Box 一键安装配置+中转脚本 v2.5               ║${NC}"
-    echo -e "${CYAN}║                 |                                                ║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}${NC}"
     echo ""
 }
 
