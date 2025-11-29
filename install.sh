@@ -15,7 +15,7 @@ CYAN='\033[0;36m'
 PURPLE='\033[0;35m'
 NC='\033[0m'
 
-AUTHOR_BLOG="dlmn.lol"
+AUTHOR_BLOG="sing-box"
 CONFIG_FILE="/etc/sing-box/config.json"
 INSTALL_DIR="/usr/local/bin"
 CERT_DIR="/etc/sing-box/certs"
