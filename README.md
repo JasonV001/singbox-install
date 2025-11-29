@@ -3,7 +3,7 @@
 一键安装和配置 Sing-Box，支持 6 种主流协议和中转功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.2.1-green.svg)](https://github.com/sd87671067/singbox-install)
+[![Version](https://img.shields.io/badge/version-2.2.1-green.svg)](https://github.com/JasonV001/singbox-install)
 
 ## ✨ 支持协议
 
