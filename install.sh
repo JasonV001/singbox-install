@@ -1,9 +1,6 @@
 #!/bin/bash
 
 # Sing-Box 一键安装配置脚本 v2.5
-# 作者: sd87671067
-# 博客: dlmn.lol
-# 更新时间: 2025-11-10 06:50 UTC
 
 set -e
 
@@ -24,15 +21,6 @@ print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 print_error() { echo -e "${RED}[✗]${NC} $1"; }
-
-show_banner() {
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║   Sing-Box 一键安装配置+中转脚本 v2.5               ║${NC}"
-    echo -e "${CYAN}║   作者: sd87671067 | 博客:   dlmn.lol              ║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════╝${NC}"
-    echo ""
-}
 
 detect_system() {
     [[ -f /etc/os-release ]] && . /etc/os-release || { print_error "无法检测系统"; exit 1; }
