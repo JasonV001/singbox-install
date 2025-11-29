@@ -60,7 +60,7 @@ install_singbox() {
     
     print_info "下载并安装 sing-box..."
     LATEST=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.tag_name' | sed 's/v//')
-    [[ -z "$LATEST" ]] && LATEST="1.12.0"
+    [[ -z "$LATEST" ]] && LATEST="1.12.12"
     
     print_info "目标版本: ${LATEST}"
     
