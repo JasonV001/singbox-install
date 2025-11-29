@@ -1,6 +1,9 @@
 #!/bin/bash
 
 # Sing-Box 一键安装配置脚本 v2.5
+# 作者: sd87671067
+# 博客: dlmn.lol
+# 更新时间: 2025-11-10 06:50 UTC
 
 set -e
 
@@ -12,7 +15,7 @@ CYAN='\033[0;36m'
 PURPLE='\033[0;35m'
 NC='\033[0m'
 
-AUTHOR_BLOG="sing-box"
+AUTHOR_BLOG="dlmn.lol"
 CONFIG_FILE="/etc/sing-box/config.json"
 INSTALL_DIR="/usr/local/bin"
 CERT_DIR="/etc/sing-box/certs"
@@ -22,6 +25,14 @@ print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
 print_error() { echo -e "${RED}[✗]${NC} $1"; }
 
+show_banner() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║   Sing-Box 一键安装配置+中转脚本 v2.5               ║${NC}"
+    echo -e "${CYAN}║   作者: sd87671067 | 博客:   dlmn.lol              ║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
 
 detect_system() {
     [[ -f /etc/os-release ]] && . /etc/os-release || { print_error "无法检测系统"; exit 1; }
@@ -49,7 +60,7 @@ install_singbox() {
     
     print_info "下载并安装 sing-box..."
     LATEST=$(curl -s https://api.github.com/repos/SagerNet/sing-box/releases/latest | jq -r '.tag_name' | sed 's/v//')
-    [[ -z "$LATEST" ]] && LATEST="1.12.12"
+    [[ -z "$LATEST" ]] && LATEST="1.12.0"
     
     print_info "目标版本: ${LATEST}"
     
