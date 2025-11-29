@@ -671,8 +671,8 @@ show_result() {
     echo -e "  重启服务: ${CYAN}systemctl restart sing-box${NC}"
     echo -e "  停止服务: ${CYAN}systemctl stop sing-box${NC}"
     echo ""
-    echo -e "${GREEN}💡 博客教程: ${YELLOW}https://${AUTHOR_BLOG}${NC}"
-    echo -e "${GREEN}📧 脚本作者: ${YELLOW}sd87671067${NC}"
+    echo -e "${GREEN}💡  ${YELLOW}https://${AUTHOR_BLOG}${NC}"
+    echo -e "${GREEN}📧 ${YELLOW}${NC}"
     echo ""
 }
 
