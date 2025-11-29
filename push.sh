@@ -10,7 +10,7 @@ NC='\033[0m'
 
 echo -e "${BLUE}╔═══════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   GitHub 一键推送脚本                            ║${NC}"
-echo -e "${BLUE}║   仓库: sd87671067/singbox-install                ║${NC}"
+echo -e "${BLUE}║   仓库: JasonV001/singbox-install                ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -18,11 +18,11 @@ if [ ! -d ".git" ]; then
     echo -e "${YELLOW}[*] 初始化 Git 仓库...${NC}"
     git init
     git branch -M main
-    git remote add origin git@github.com:sd87671067/singbox-install.git
+    git remote add origin git@github.com:JasonV001/singbox-install.git
     echo -e "${GREEN}[✓] Git 仓库初始化完成${NC}"
 else
     echo -e "${GREEN}[✓] Git 仓库已存在${NC}"
-    git remote set-url origin git@github.com:sd87671067/singbox-install.git
+    git remote set-url origin git@github.com:JasonV001/singbox-install.git
 fi
 
 echo ""
@@ -59,7 +59,7 @@ if [ $? -eq 0 ]; then
     echo -e "${GREEN}║            🎉 推送成功！                          ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${BLUE}仓库地址: ${YELLOW}https://github.com/sd87671067/singbox-install${NC}"
+    echo -e "${BLUE}仓库地址: ${YELLOW}https://github.com/JasonV001/singbox-install${NC}"
     echo ""
 else
     echo ""
