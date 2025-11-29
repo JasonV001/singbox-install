@@ -19,4 +19,4 @@
 ## 🚀 一键安装
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sd87671067/singbox-install/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/JasonV001/singbox-install/main/install.sh)
