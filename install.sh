@@ -789,10 +789,13 @@ show_result() {
 }
 
 setup_sb_shortcut() {
-    if command -v sb &>/dev/null; then
+    print_info "创建快捷命令 sb..."
+    # 仅当脚本路径是实际文件时才创建快捷命令
+    if [[ ! -f "${SCRIPT_PATH}" ]]; then
+        print_warning "当前脚本并非磁盘文件，跳过创建 sb（请从本地脚本文件运行后再试）"
         return
     fi
-    print_info "创建快捷命令 sb..."
+
     cat > /usr/local/bin/sb << EOSB
 #!/bin/bash
 bash "${SCRIPT_PATH}" "\$@"
