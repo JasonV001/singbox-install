@@ -531,12 +531,19 @@ show_menu() {
         6) setup_anytls ;;
         *) print_error "无效选项"; return 1 ;;
     esac
+
+    # 添加节点后立刻生成配置并启动服务，同时输出当前节点信息
+    if [[ -n "$INBOUNDS_JSON" ]]; then
+        generate_config || return 1
+        start_svc || return 1
+        show_result
+    fi
 }
 
 show_main_menu() {
     show_banner
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║                 ${GREEN}Sing-Box 一键管理面板${CYAN}                 ║${NC}"
+    echo -e "${CYAN}║          ${GREEN}Sing-Box 一键管理面板${CYAN}          ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
     echo -e "  ${YELLOW}当前出站: ${GREEN}${OUTBOUND_TAG}${NC}"
@@ -545,8 +552,30 @@ show_main_menu() {
     echo -e "  ${GREEN}[2]${NC} 设置中转（SOCKS5 / HTTP(S)）"
     echo -e "  ${GREEN}[3]${NC} 删除中转，恢复直连"
     echo -e "  ${GREEN}[4]${NC} 生成配置并启动服务"
+    echo -e "  ${GREEN}[5]${NC} 一键删除脚本并退出"
     echo -e "  ${GREEN}[0]${NC} 退出脚本"
     echo ""
+}
+
+delete_self() {
+    echo -e "${YELLOW}此操作将删除当前脚本以及快捷命令 sb，且无法恢复。${NC}"
+    read -p "确认删除？(y/N): " CONFIRM_DELETE
+    CONFIRM_DELETE=${CONFIRM_DELETE:-N}
+    if [[ ! "$CONFIRM_DELETE" =~ ^[Yy]$ ]]; then
+        print_info "已取消删除操作"
+        return 0
+    fi
+
+    print_info "删除快捷命令 sb（如存在）..."
+    if command -v sb &>/dev/null; then
+        rm -f "$(command -v sb)" 2>/dev/null || true
+    fi
+
+    print_info "删除当前脚本文件: ${SCRIPT_PATH}"
+    rm -f "${SCRIPT_PATH}" 2>/dev/null || true
+
+    print_success "脚本及快捷命令删除操作已完成，准备退出。"
+    exit 0
 }
 
 main_menu() {
@@ -571,6 +600,9 @@ main_menu() {
                     start_svc
                     show_result
                 fi
+                ;;
+            5)
+                delete_self
                 ;;
             0)
                 print_info "已退出"
