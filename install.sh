@@ -560,7 +560,7 @@ show_result() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║                                                       ║${NC}"
-    echo -e "${CYAN}║               ${GREEN}🎉 配置完成！${CYAN}                          ║${NC}"
+    echo -e "${CYAN}║               ${GREEN}🎉 配置完成！${CYAN}            ║${NC}"
     echo -e "${CYAN}║                                                       ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
