@@ -610,7 +610,7 @@ setup_relay() {
                     done
                     echo ""
                     echo -e "输入要切换中转状态的序号，多个用逗号分隔，例如: 1,3"
-                    echo -e "输入 0 返回上一级菜单"
+                    echo -e "输入 0 完成选择并应用配置，返回上一级菜单"
                     read -p "请输入: " sel
 
                     sel=$(echo "$sel" | tr -d ' ')
@@ -618,6 +618,10 @@ setup_relay() {
                         continue
                     fi
                     if [[ "$sel" == "0" ]]; then
+                        # 完成选择后自动生成配置并重启服务
+                        if [[ -n "$INBOUNDS_JSON" ]]; then
+                            generate_config && start_svc
+                        fi
                         break
                     fi
 
@@ -708,7 +712,31 @@ show_main_menu() {
     echo -e "${CYAN}║          ${GREEN}Sing-Box 一键管理面板${CYAN}          ║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "  ${YELLOW}当前出站: ${GREEN}${OUTBOUND_TAG}${NC}"
+
+    local outbound_desc
+    if [[ "$OUTBOUND_TAG" == "relay" ]]; then
+        local relay_proto=""
+        local relay_port=""
+        if [[ ${#INBOUND_RELAY_FLAGS[@]} -gt 0 ]]; then
+            for i in "${!INBOUND_RELAY_FLAGS[@]}"; do
+                if [[ "${INBOUND_RELAY_FLAGS[$i]}" == "1" ]]; then
+                    relay_proto="${INBOUND_PROTOS[$i]}"
+                    relay_port="${INBOUND_PORTS[$i]}"
+                    break
+                fi
+            done
+        fi
+
+        if [[ -n "$relay_proto" && -n "$relay_port" ]]; then
+            outbound_desc="中转 (${relay_proto}) (${relay_port})"
+        else
+            outbound_desc="中转"
+        fi
+    else
+        outbound_desc="直连"
+    fi
+
+    echo -e "  ${YELLOW}当前出站: ${GREEN}${outbound_desc}${NC}"
     echo ""
     echo -e "  ${GREEN}[1]${NC} 添加/继续添加节点"
     echo -e "  ${GREEN}[2]${NC} 设置中转（SOCKS5 / HTTP(S)）"
