@@ -18,6 +18,13 @@ CERT_DIR="/etc/sing-box/certs"
 SCRIPT_PATH=$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")
 INBOUNDS_JSON=""
 OUTBOUND_TAG="direct"
+ALL_LINKS_TEXT=""
+REALITY_LINKS=""
+HYSTERIA2_LINKS=""
+SOCKS5_LINKS=""
+SHADOWTLS_LINKS=""
+HTTPS_LINKS=""
+ANYTLS_LINKS=""
 
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -192,6 +199,9 @@ setup_reality() {
     
     PROTO="Reality"
     EXTRA_INFO="UUID: ${UUID}\nPublic Key: ${REALITY_PUBLIC}\nShort ID: ${SHORT_ID}\nSNI: ${SNI}"
+    local line="[Reality] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    REALITY_LINKS="${REALITY_LINKS}${line}\\n"
     print_success "Reality 配置完成"
 }
 
@@ -221,6 +231,9 @@ setup_hysteria2() {
     LINK="hysteria2://${HY2_PASSWORD}@${SERVER_IP}:${PORT}?insecure=1&sni=itunes.apple.com#${AUTHOR_BLOG}"
     PROTO="Hysteria2"
     EXTRA_INFO="密码: ${HY2_PASSWORD}\n证书: 自签证书(itunes.apple.com)"
+    local line="[Hysteria2] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    HYSTERIA2_LINKS="${HYSTERIA2_LINKS}${line}\\n"
     print_success "Hysteria2 配置完成"
 }
 
@@ -260,6 +273,9 @@ setup_socks5() {
     fi
     INBOUND_JSON="$inbound"
     PROTO="SOCKS5"
+    local line="[SOCKS5] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    SOCKS5_LINKS="${SOCKS5_LINKS}${line}\\n"
     print_success "SOCKS5 配置完成"
 }
 
@@ -307,6 +323,9 @@ setup_shadowtls() {
     fi
     INBOUND_JSON="$inbound"
     PROTO="ShadowTLS v3"
+    local line="[ShadowTLS v3] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    SHADOWTLS_LINKS="${SHADOWTLS_LINKS}${line}\\n"
     EXTRA_INFO="Shadowsocks方法: 2022-blake3-aes-128-gcm\nShadowsocks密码: ${SS_PASSWORD}\nShadowTLS密码: ${SHADOWTLS_PASSWORD}\n伪装域名: ${SNI}\n\n说明: 可直接复制链接导入 Shadowrocket"
     print_success "ShadowTLS v3 配置完成"
 }
@@ -343,6 +362,9 @@ setup_https() {
     INBOUND_JSON="$inbound"
     PROTO="HTTPS"
     EXTRA_INFO="UUID: ${UUID}\n证书: 自签证书(itunes.apple.com)"
+    local line="[HTTPS] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    HTTPS_LINKS="${HTTPS_LINKS}${line}\\n"
     print_success "HTTPS 配置完成"
 }
 
@@ -385,6 +407,9 @@ setup_anytls() {
     PROTO="AnyTLS"
     
     EXTRA_INFO="密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(itunes.apple.com)\n证书指纹(SHA256): ${CERT_SHA256}\n\n✨ 支持的客户端:\n  • Shadowrocket / V2rayN - 直接导入链接"
+    local line="[AnyTLS] ${SERVER_IP}:${PORT}\\n${LINK_SHADOWROCKET}\\nV2rayN: ${LINK_V2RAYN}\\n"
+    ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
+    ANYTLS_LINKS="${ANYTLS_LINKS}${line}\\n"
     
     print_success "AnyTLS 配置完成（已生成Shadowrocket和V2rayN格式）"
 }
@@ -578,7 +603,7 @@ show_main_menu() {
     echo -e "  ${GREEN}[1]${NC} 添加/继续添加节点"
     echo -e "  ${GREEN}[2]${NC} 设置中转（SOCKS5 / HTTP(S)）"
     echo -e "  ${GREEN}[3]${NC} 删除中转，恢复直连"
-    echo -e "  ${GREEN}[4]${NC} 生成配置并启动服务"
+    echo -e "  ${GREEN}[4]${NC} 配置 / 查看节点"
     echo -e "  ${GREEN}[5]${NC} 一键删除脚本并退出"
     echo -e "  ${GREEN}[0]${NC} 退出脚本"
     echo ""
@@ -620,13 +645,7 @@ main_menu() {
                 clear_relay
                 ;;
             4)
-                if [[ -z "$INBOUNDS_JSON" ]]; then
-                    print_error "尚未添加任何节点，请先添加节点"
-                else
-                    generate_config
-                    start_svc
-                    show_result
-                fi
+                config_and_view_menu
                 ;;
             5)
                 delete_self
@@ -813,6 +832,127 @@ show_result() {
     echo -e "${GREEN}💡  ${YELLOW}https://${AUTHOR_BLOG}${NC}"
     echo -e "${GREEN}📧 ${YELLOW}${NC}"
     echo ""
+}
+
+config_and_view_menu() {
+    while true; do
+        show_banner
+        echo -e "${CYAN}╔═══════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║              ${GREEN}配置 / 查看节点菜单${CYAN}              ║${NC}"
+        echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "  ${GREEN}[1]${NC} 生成配置并启动服务（当前所有节点）"
+        echo -e "  ${GREEN}[2]${NC} 查看全部节点链接"
+        echo -e "  ${GREEN}[3]${NC} 查看 Reality 节点"
+        echo -e "  ${GREEN}[4]${NC} 查看 Hysteria2 节点"
+        echo -e "  ${GREEN}[5]${NC} 查看 SOCKS5 节点"
+        echo -e "  ${GREEN}[6]${NC} 查看 ShadowTLS 节点"
+        echo -e "  ${GREEN}[7]${NC} 查看 HTTPS 节点"
+        echo -e "  ${GREEN}[8]${NC} 查看 AnyTLS 节点"
+        echo -e "  ${GREEN}[0]${NC} 返回主菜单"
+        echo ""
+
+        read -p "请选择 [0-8]: " cv_choice
+        case $cv_choice in
+            1)
+                if [[ -z "$INBOUNDS_JSON" ]]; then
+                    print_error "尚未添加任何节点，请先添加节点"
+                else
+                    generate_config && start_svc && show_result
+                fi
+                ;;
+            2)
+                clear
+                echo -e "${YELLOW}全部节点链接:${NC}"
+                echo ""
+                if [[ -z "$ALL_LINKS_TEXT" ]]; then
+                    echo "(暂无节点)"
+                else
+                    echo -e "$ALL_LINKS_TEXT"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            3)
+                clear
+                echo -e "${YELLOW}Reality 节点:${NC}"
+                echo ""
+                if [[ -z "$REALITY_LINKS" ]]; then
+                    echo "(暂无 Reality 节点)"
+                else
+                    echo -e "$REALITY_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            4)
+                clear
+                echo -e "${YELLOW}Hysteria2 节点:${NC}"
+                echo ""
+                if [[ -z "$HYSTERIA2_LINKS" ]]; then
+                    echo "(暂无 Hysteria2 节点)"
+                else
+                    echo -e "$HYSTERIA2_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            5)
+                clear
+                echo -e "${YELLOW}SOCKS5 节点:${NC}"
+                echo ""
+                if [[ -z "$SOCKS5_LINKS" ]]; then
+                    echo "(暂无 SOCKS5 节点)"
+                else
+                    echo -e "$SOCKS5_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            6)
+                clear
+                echo -e "${YELLOW}ShadowTLS 节点:${NC}"
+                echo ""
+                if [[ -z "$SHADOWTLS_LINKS" ]]; then
+                    echo "(暂无 ShadowTLS 节点)"
+                else
+                    echo -e "$SHADOWTLS_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            7)
+                clear
+                echo -e "${YELLOW}HTTPS 节点:${NC}"
+                echo ""
+                if [[ -z "$HTTPS_LINKS" ]]; then
+                    echo "(暂无 HTTPS 节点)"
+                else
+                    echo -e "$HTTPS_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            8)
+                clear
+                echo -e "${YELLOW}AnyTLS 节点:${NC}"
+                echo ""
+                if [[ -z "$ANYTLS_LINKS" ]]; then
+                    echo "(暂无 AnyTLS 节点)"
+                else
+                    echo -e "$ANYTLS_LINKS"
+                fi
+                echo ""
+                read -p "按回车返回..." _
+                ;;
+            0)
+                break
+                ;;
+            *)
+                print_error "无效选项"
+                ;;
+        esac
+    done
 }
 
 setup_sb_shortcut() {
