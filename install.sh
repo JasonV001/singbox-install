@@ -15,6 +15,10 @@ CONFIG_FILE="/etc/sing-box/config.json"
 INSTALL_DIR="/usr/local/bin"
 CERT_DIR="/etc/sing-box/certs"
 
+SCRIPT_PATH=$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")
+INBOUNDS_JSON=""
+OUTBOUND_TAG="direct"
+
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
@@ -124,7 +128,7 @@ setup_reality() {
     
     print_info "生成配置文件..."
     
-    INBOUND_JSON='{
+    local inbound='{
   "type": "vless",
   "tag": "vless-in",
   "listen": "::",
@@ -141,6 +145,13 @@ setup_reality() {
     }
   }
 }'
+
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        INBOUNDS_JSON="$inbound"
+    else
+        INBOUNDS_JSON="${INBOUNDS_JSON},${inbound}"
+    fi
+    INBOUND_JSON="$inbound"
     
     LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${SNI}&fp=chrome&pbk=${REALITY_PUBLIC}&sid=${SHORT_ID}&type=tcp#${AUTHOR_BLOG}"
     
@@ -162,7 +173,7 @@ setup_hysteria2() {
     
     print_info "生成配置文件..."
     
-    INBOUND_JSON='{
+    local inbound='{
   "type": "hysteria2",
   "tag": "hy2-in",
   "listen": "::",
@@ -192,7 +203,7 @@ setup_socks5() {
     print_info "生成配置文件..."
     
     if [[ "$ENABLE_AUTH" =~ ^[Yy]$ ]]; then
-        INBOUND_JSON='{
+        local inbound='{
   "type": "socks",
   "tag": "socks-in",
   "listen": "::",
@@ -202,7 +213,7 @@ setup_socks5() {
         LINK="socks5://${SOCKS_USER}:${SOCKS_PASS}@${SERVER_IP}:${PORT}#${AUTHOR_BLOG}"
         EXTRA_INFO="用户名: ${SOCKS_USER}\n密码: ${SOCKS_PASS}"
     else
-        INBOUND_JSON='{
+        local inbound='{
   "type": "socks",
   "tag": "socks-in",
   "listen": "::",
@@ -212,6 +223,12 @@ setup_socks5() {
         EXTRA_INFO="无认证"
     fi
     
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        INBOUNDS_JSON="$inbound"
+    else
+        INBOUNDS_JSON="${INBOUNDS_JSON},${inbound}"
+    fi
+    INBOUND_JSON="$inbound"
     PROTO="SOCKS5"
     print_success "SOCKS5 配置完成"
 }
@@ -226,7 +243,7 @@ setup_shadowtls() {
     print_info "生成配置文件..."
     print_warning "ShadowTLS 通过伪装真实域名的TLS握手工作"
     
-    INBOUND_JSON='{
+    local inbound='{
   "type": "shadowtls",
   "tag": "shadowtls-in",
   "listen": "::",
@@ -254,6 +271,12 @@ setup_shadowtls() {
     
     LINK="ss://${ss_userinfo}@${SERVER_IP}:${PORT}?shadow-tls=${plugin_base64}#${AUTHOR_BLOG}"
     
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        INBOUNDS_JSON="$inbound"
+    else
+        INBOUNDS_JSON="${INBOUNDS_JSON},${inbound}"
+    fi
+    INBOUND_JSON="$inbound"
     PROTO="ShadowTLS v3"
     EXTRA_INFO="Shadowsocks方法: 2022-blake3-aes-128-gcm\nShadowsocks密码: ${SS_PASSWORD}\nShadowTLS密码: ${SHADOWTLS_PASSWORD}\n伪装域名: ${SNI}\n\n说明: 可直接复制链接导入 Shadowrocket"
     print_success "ShadowTLS v3 配置完成"
@@ -269,7 +292,7 @@ setup_https() {
     
     print_info "生成配置文件..."
     
-    INBOUND_JSON='{
+    local inbound='{
   "type": "vless",
   "tag": "vless-tls-in",
   "listen": "::",
@@ -284,6 +307,12 @@ setup_https() {
 }'
     
     LINK="vless://${UUID}@${SERVER_IP}:${PORT}?encryption=none&security=tls&sni=itunes.apple.com&type=tcp&allowInsecure=1#${AUTHOR_BLOG}"
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        INBOUNDS_JSON="$inbound"
+    else
+        INBOUNDS_JSON="${INBOUNDS_JSON},${inbound}"
+    fi
+    INBOUND_JSON="$inbound"
     PROTO="HTTPS"
     EXTRA_INFO="UUID: ${UUID}\n证书: 自签证书(itunes.apple.com)"
     print_success "HTTPS 配置完成"
@@ -302,7 +331,7 @@ setup_anytls() {
     
     print_info "生成配置文件..."
     
-    INBOUND_JSON='{
+    local inbound='{
   "type": "anytls",
   "tag": "anytls-in",
   "listen": "::",
@@ -320,6 +349,12 @@ setup_anytls() {
     LINK_V2RAYN="anytls://${ANYTLS_PASSWORD}@${SERVER_IP}:${PORT}?security=tls&fp=firefox&insecure=1&type=tcp#${AUTHOR_BLOG}"
     
     LINK="${LINK_SHADOWROCKET}"
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        INBOUNDS_JSON="$inbound"
+    else
+        INBOUNDS_JSON="${INBOUNDS_JSON},${inbound}"
+    fi
+    INBOUND_JSON="$inbound"
     PROTO="AnyTLS"
     
     EXTRA_INFO="密码: ${ANYTLS_PASSWORD}\n证书: 自签证书(itunes.apple.com)\n证书指纹(SHA256): ${CERT_SHA256}\n\n✨ 支持的客户端:\n  • Shadowrocket / V2rayN - 直接导入链接"
@@ -429,17 +464,6 @@ parse_http_link() {
 
 setup_relay() {
     echo ""
-    echo -e "${YELLOW}是否配置中转? [y/N]:${NC}"
-    read -p "> " USE_RELAY
-    USE_RELAY=${USE_RELAY:-N}
-    
-    if [[ ! "$USE_RELAY" =~ ^[Yy]$ ]]; then
-        RELAY_JSON=''
-        OUTBOUND_TAG="direct"
-        print_info "不使用中转，直连模式"
-        return
-    fi
-    
     echo ""
     echo -e "${CYAN}支持的中转格式:${NC}"
     echo -e "  ${GREEN}SOCKS5:${NC}"
@@ -454,9 +478,7 @@ setup_relay() {
     read -p "粘贴中转链接: " RELAY_LINK
     
     if [[ -z "$RELAY_LINK" ]]; then
-        RELAY_JSON=''
-        OUTBOUND_TAG="direct"
-        print_warning "未提供链接，使用直连"
+        print_warning "未提供链接，中转配置保持不变"
         return
     fi
     
@@ -466,15 +488,19 @@ setup_relay() {
         parse_http_link "$RELAY_LINK"
     else
         print_error "不支持的链接格式"
-        RELAY_JSON=''
-        OUTBOUND_TAG="direct"
         return
     fi
 }
 
+clear_relay() {
+    RELAY_JSON=''
+    OUTBOUND_TAG="direct"
+    print_success "已删除中转配置，当前为直连模式"
+}
+
 show_menu() {
     show_banner
-    echo -e "${YELLOW}请选择协议:${NC}"
+    echo -e "${YELLOW}请选择要添加的协议节点:${NC}"
     echo ""
     echo -e "${GREEN}[1]${NC} VlessReality ${YELLOW}(⭐ 强烈推荐)${NC}"
     echo -e "    ${CYAN}→ 抗审查最强，伪装真实TLS，无需证书${NC}"
@@ -503,13 +529,70 @@ show_menu() {
         4) setup_shadowtls ;;
         5) setup_https ;;
         6) setup_anytls ;;
-        *) print_error "无效选项"; exit 1 ;;
+        *) print_error "无效选项"; return 1 ;;
     esac
+}
+
+show_main_menu() {
+    show_banner
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                 ${GREEN}Sing-Box 一键管理面板${CYAN}                 ║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "  ${YELLOW}当前出站: ${GREEN}${OUTBOUND_TAG}${NC}"
+    echo ""
+    echo -e "  ${GREEN}[1]${NC} 添加/继续添加节点"
+    echo -e "  ${GREEN}[2]${NC} 设置中转（SOCKS5 / HTTP(S)）"
+    echo -e "  ${GREEN}[3]${NC} 删除中转，恢复直连"
+    echo -e "  ${GREEN}[4]${NC} 生成配置并启动服务"
+    echo -e "  ${GREEN}[0]${NC} 退出脚本"
+    echo ""
+}
+
+main_menu() {
+    while true; do
+        show_main_menu
+        read -p "请选择 [0-4]: " m_choice
+        case $m_choice in
+            1)
+                show_menu
+                ;;
+            2)
+                setup_relay
+                ;;
+            3)
+                clear_relay
+                ;;
+            4)
+                if [[ -z "$INBOUNDS_JSON" ]]; then
+                    print_error "尚未添加任何节点，请先添加节点"
+                else
+                    generate_config
+                    start_svc
+                    show_result
+                fi
+                ;;
+            0)
+                print_info "已退出"
+                exit 0
+                ;;
+            *)
+                print_error "无效选项"
+                ;;
+        esac
+        echo ""
+        read -p "按回车返回主菜单..." _
+    done
 }
 
 generate_config() {
     print_info "生成最终配置文件..."
     
+    if [[ -z "$INBOUNDS_JSON" ]]; then
+        print_error "未找到任何入站节点，请先添加节点"
+        return 1
+    fi
+
     local outbounds='[{"type": "direct", "tag": "direct"}]'
     
     if [[ -n "$RELAY_JSON" ]]; then
@@ -522,7 +605,7 @@ generate_config() {
     "level": "info",
     "timestamp": true
   },
-  "inbounds": [${INBOUND_JSON}],
+  "inbounds": [${INBOUNDS_JSON}],
   "outbounds": ${outbounds},
   "route": {
     "final": "${OUTBOUND_TAG}"
@@ -673,6 +756,19 @@ show_result() {
     echo ""
 }
 
+setup_sb_shortcut() {
+    if command -v sb &>/dev/null; then
+        return
+    fi
+    print_info "创建快捷命令 sb..."
+    cat > /usr/local/bin/sb << EOSB
+#!/bin/bash
+bash "${SCRIPT_PATH}" "\$@"
+EOSB
+    chmod +x /usr/local/bin/sb
+    print_success "已创建快捷命令: sb （任意位置输入 sb 即可重新进入脚本）"
+}
+
 main() {
     [[ $EUID -ne 0 ]] && { print_error "需要 root 权限"; exit 1; }
     
@@ -683,12 +779,8 @@ main() {
     mkdir -p /etc/sing-box
     gen_keys
     get_ip
-    
-    show_menu
-    setup_relay
-    generate_config
-    start_svc
-    show_result
+    setup_sb_shortcut
+    main_menu
 }
 
 main
