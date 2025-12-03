@@ -119,10 +119,42 @@ get_ip() {
     print_success "服务器 IP: ${SERVER_IP}"
 }
 
+check_port_in_use() {
+    local port="$1"
+
+    if command -v ss &>/dev/null; then
+        ss -tuln | awk '{print $5}' | grep -E "[:.]${port}$" >/dev/null 2>&1 && return 0 || return 1
+    elif command -v netstat &>/dev/null; then
+        netstat -tuln | awk '{print $4}' | grep -E "[:.]${port}$" >/dev/null 2>&1 && return 0 || return 1
+    else
+        # 无法检测时，默认认为未占用
+        return 1
+    fi
+}
+
+read_port_with_check() {
+    local default_port="$1"
+    while true; do
+        read -p "监听端口 [${default_port}]: " PORT
+        PORT=${PORT:-${default_port}}
+
+        if ! [[ "$PORT" =~ ^[0-9]+$ ]] || ((PORT < 1 || PORT > 65535)); then
+            print_error "端口无效，请输入 1-65535 之间的数字"
+            continue
+        fi
+
+        if check_port_in_use "$PORT"; then
+            print_warning "端口 ${PORT} 已被占用，请重新输入"
+            continue
+        fi
+
+        break
+    done
+}
+
 setup_reality() {
     echo ""
-    read -p "监听端口 [443]: " PORT
-    PORT=${PORT:-443}
+    read_port_with_check 443
     read -p "伪装域名 [itunes.apple.com]: " SNI
     SNI=${SNI:-itunes.apple.com}
     
@@ -165,8 +197,7 @@ setup_reality() {
 
 setup_hysteria2() {
     echo ""
-    read -p "监听端口 [443]: " PORT
-    PORT=${PORT:-443}
+    read_port_with_check 443
     
     print_info "生成自签证书..."
     gen_cert
@@ -195,8 +226,7 @@ setup_hysteria2() {
 
 setup_socks5() {
     echo ""
-    read -p "监听端口 [1080]: " PORT
-    PORT=${PORT:-1080}
+    read_port_with_check 1080
     read -p "是否启用认证? [Y/n]: " ENABLE_AUTH
     ENABLE_AUTH=${ENABLE_AUTH:-Y}
     
@@ -235,8 +265,7 @@ setup_socks5() {
 
 setup_shadowtls() {
     echo ""
-    read -p "监听端口 [443]: " PORT
-    PORT=${PORT:-443}
+    read_port_with_check 443
     read -p "伪装域名 [www.bing.com]: " SNI
     SNI=${SNI:-www.bing.com}
     
@@ -284,8 +313,7 @@ setup_shadowtls() {
 
 setup_https() {
     echo ""
-    read -p "监听端口 [443]: " PORT
-    PORT=${PORT:-443}
+    read_port_with_check 443
     
     print_info "生成自签证书..."
     gen_cert
@@ -320,8 +348,7 @@ setup_https() {
 
 setup_anytls() {
     echo ""
-    read -p "监听端口 [443]: " PORT
-    PORT=${PORT:-443}
+    read_port_with_check 443
     
     print_info "生成自签证书..."
     gen_cert
