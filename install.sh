@@ -28,6 +28,11 @@ ANYTLS_LINKS=""
 SELECTED_RELAY_TAG=""
 SELECTED_RELAY_DESC=""
 
+INBOUND_TAGS=()
+INBOUND_PORTS=()
+INBOUND_PROTOS=()
+INBOUND_RELAY_FLAGS=()
+
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[!]${NC} $1"; }
@@ -204,6 +209,11 @@ setup_reality() {
     local line="[Reality] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     REALITY_LINKS="${REALITY_LINKS}${line}\\n"
+    local tag="vless-in-${PORT}"
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "Reality 配置完成"
 }
 
@@ -236,6 +246,11 @@ setup_hysteria2() {
     local line="[Hysteria2] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     HYSTERIA2_LINKS="${HYSTERIA2_LINKS}${line}\\n"
+    local tag="hy2-in-${PORT}"
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "Hysteria2 配置完成"
 }
 
@@ -278,6 +293,16 @@ setup_socks5() {
     local line="[SOCKS5] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     SOCKS5_LINKS="${SOCKS5_LINKS}${line}\\n"
+    local tag
+    if [[ "$ENABLE_AUTH" =~ ^[Yy]$ ]]; then
+        tag="socks-in-${PORT}"
+    else
+        tag="socks-in"
+    fi
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "SOCKS5 配置完成"
 }
 
@@ -329,6 +354,11 @@ setup_shadowtls() {
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     SHADOWTLS_LINKS="${SHADOWTLS_LINKS}${line}\\n"
     EXTRA_INFO="Shadowsocks方法: 2022-blake3-aes-128-gcm\nShadowsocks密码: ${SS_PASSWORD}\nShadowTLS密码: ${SHADOWTLS_PASSWORD}\n伪装域名: ${SNI}\n\n说明: 可直接复制链接导入 Shadowrocket"
+    local tag="shadowtls-in-${PORT}"
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "ShadowTLS v3 配置完成"
 }
 
@@ -367,6 +397,11 @@ setup_https() {
     local line="[HTTPS] ${SERVER_IP}:${PORT}\\n${LINK}\\n"
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     HTTPS_LINKS="${HTTPS_LINKS}${line}\\n"
+    local tag="vless-tls-in-${PORT}"
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "HTTPS 配置完成"
 }
 
@@ -412,7 +447,11 @@ setup_anytls() {
     local line="[AnyTLS] ${SERVER_IP}:${PORT}\\n${LINK_SHADOWROCKET}\\nV2rayN: ${LINK_V2RAYN}\\n"
     ALL_LINKS_TEXT="${ALL_LINKS_TEXT}${line}\\n"
     ANYTLS_LINKS="${ANYTLS_LINKS}${line}\\n"
-    
+    local tag="anytls-in-${PORT}"
+    INBOUND_TAGS+=("${tag}")
+    INBOUND_PORTS+=("${PORT}")
+    INBOUND_PROTOS+=("${PROTO}")
+    INBOUND_RELAY_FLAGS+=(0)
     print_success "AnyTLS 配置完成（已生成Shadowrocket和V2rayN格式）"
 }
 
@@ -517,38 +556,107 @@ parse_http_link() {
 }
 
 setup_relay() {
-    echo ""
-    echo ""
-    echo -e "${CYAN}支持的中转格式:${NC}"
-    echo -e "  ${GREEN}SOCKS5:${NC}"
-    echo -e "    socks5://user:pass@server:port"
-    echo -e "    socks5://server:port"
-    echo -e "    socks://base64编码"
-    echo ""
-    echo -e "  ${GREEN}HTTP/HTTPS:${NC}"
-    echo -e "    http://user:pass@server:port"
-    echo -e "    https://server:port"
-    echo ""
-    read -p "粘贴中转链接: " RELAY_LINK
-    
-    if [[ -z "$RELAY_LINK" ]]; then
-        print_warning "未提供链接，中转配置保持不变"
-        return
-    fi
-    
-    if [[ "$RELAY_LINK" =~ ^socks ]]; then
-        parse_socks_link "$RELAY_LINK"
-    elif [[ "$RELAY_LINK" =~ ^https? ]]; then
-        parse_http_link "$RELAY_LINK"
-    else
-        print_error "不支持的链接格式"
-        return
-    fi
+    while true; do
+        echo ""
+        echo -e "${CYAN}中转配置菜单:${NC}"
+        echo -e "  ${GREEN}[1]${NC} 设置/修改中转上游（SOCKS5 / HTTP(S)）"
+        echo -e "  ${GREEN}[2]${NC} 选择要走中转的节点（按端口）"
+        echo -e "  ${GREEN}[0]${NC} 返回主菜单"
+        echo ""
+        read -p "请选择 [0-2]: " r_choice
+
+        case $r_choice in
+            1)
+                echo ""
+                echo ""
+                echo -e "${CYAN}支持的中转格式:${NC}"
+                echo -e "  ${GREEN}SOCKS5:${NC}"
+                echo -e "    socks5://user:pass@server:port"
+                echo -e "    socks5://server:port"
+                echo -e "    socks://base64编码"
+                echo ""
+                echo -e "  ${GREEN}HTTP/HTTPS:${NC}"
+                echo -e "    http://user:pass@server:port"
+                echo -e "    https://server:port"
+                echo ""
+                read -p "粘贴中转链接: " RELAY_LINK
+
+                if [[ -z "$RELAY_LINK" ]]; then
+                    print_warning "未提供链接，中转配置保持不变"
+                else
+                    if [[ "$RELAY_LINK" =~ ^socks ]]; then
+                        parse_socks_link "$RELAY_LINK"
+                    elif [[ "$RELAY_LINK" =~ ^https? ]]; then
+                        parse_http_link "$RELAY_LINK"
+                    else
+                        print_error "不支持的链接格式"
+                    fi
+                fi
+                ;;
+            2)
+                if [[ ${#INBOUND_TAGS[@]} -eq 0 ]]; then
+                    print_warning "当前尚未添加任何节点，请先添加节点"
+                    continue
+                fi
+
+                while true; do
+                    echo ""
+                    echo -e "${CYAN}当前节点列表（按端口选择是否走中转）:${NC}"
+                    for i in "${!INBOUND_TAGS[@]}"; do
+                        idx=$((i+1))
+                        status="直连"
+                        [[ "${INBOUND_RELAY_FLAGS[$i]}" == "1" ]] && status="中转"
+                        echo -e "  ${GREEN}[${idx}]${NC} 协议: ${INBOUND_PROTOS[$i]}, 端口: ${INBOUND_PORTS[$i]}  → ${YELLOW}${status}${NC}"
+                    done
+                    echo ""
+                    echo -e "输入要切换中转状态的序号，多个用逗号分隔，例如: 1,3"
+                    echo -e "输入 0 返回上一级菜单"
+                    read -p "请输入: " sel
+
+                    sel=$(echo "$sel" | tr -d ' ')
+                    if [[ -z "$sel" ]]; then
+                        continue
+                    fi
+                    if [[ "$sel" == "0" ]]; then
+                        break
+                    fi
+
+                    IFS=',' read -ra indices <<< "$sel"
+                    for one in "${indices[@]}"; do
+                        if ! [[ "$one" =~ ^[0-9]+$ ]]; then
+                            continue
+                        fi
+                        n=$((one-1))
+                        if (( n < 0 || n >= ${#INBOUND_TAGS[@]} )); then
+                            continue
+                        fi
+                        if [[ "${INBOUND_RELAY_FLAGS[$n]}" == "1" ]]; then
+                            INBOUND_RELAY_FLAGS[$n]=0
+                        else
+                            INBOUND_RELAY_FLAGS[$n]=1
+                        fi
+                    done
+                    print_success "节点中转状态已更新"
+                done
+                ;;
+            0)
+                break
+                ;;
+            *)
+                print_error "无效选项"
+                ;;
+        esac
+    done
 }
 
 clear_relay() {
     RELAY_JSON=''
     OUTBOUND_TAG="direct"
+    if [[ ${#INBOUND_RELAY_FLAGS[@]} -gt 0 ]]; then
+        for i in "${!INBOUND_RELAY_FLAGS[@]}"; do
+            INBOUND_RELAY_FLAGS[$i]=0
+        done
+    fi
     print_success "已删除中转配置，当前为直连模式"
 }
 
@@ -678,7 +786,37 @@ generate_config() {
     if [[ -n "$RELAY_JSON" ]]; then
         outbounds='['${RELAY_JSON}', {"type": "direct", "tag": "direct"}]'
     fi
-    
+
+    local route_json
+    local has_relay_inbound=0
+
+    if [[ -n "$RELAY_JSON" ]]; then
+        local relay_inbounds=()
+        local i
+        for i in "${!INBOUND_TAGS[@]}"; do
+            if [[ "${INBOUND_RELAY_FLAGS[$i]}" == "1" ]]; then
+                relay_inbounds+=("\"${INBOUND_TAGS[$i]}\"")
+                has_relay_inbound=1
+            fi
+        done
+
+        if [[ $has_relay_inbound -eq 1 ]]; then
+            local inbound_array
+            inbound_array=$(IFS=,; echo "${relay_inbounds[*]}")
+            route_json='{"rules":[{"inbound":['${inbound_array}'],"outbound":"relay"}],"final":"direct"}'
+        else
+            route_json='{"final":"direct"}'
+        fi
+    else
+        route_json='{"final":"direct"}'
+    fi
+
+    if [[ -n "$RELAY_JSON" && $has_relay_inbound -eq 1 ]]; then
+        OUTBOUND_TAG="relay"
+    else
+        OUTBOUND_TAG="direct"
+    fi
+
     cat > ${CONFIG_FILE} << EOFCONFIG
 {
   "log": {
@@ -687,9 +825,7 @@ generate_config() {
   },
   "inbounds": [${INBOUNDS_JSON}],
   "outbounds": ${outbounds},
-  "route": {
-    "final": "${OUTBOUND_TAG}"
-  }
+  "route": ${route_json}
 }
 EOFCONFIG
     
