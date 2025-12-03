@@ -665,45 +665,50 @@ clear_relay() {
 }
 
 show_menu() {
-    show_banner
-    echo -e "${YELLOW}请选择要添加的协议节点:${NC}"
-    echo ""
-    echo -e "${GREEN}[1]${NC} VlessReality ${YELLOW}(⭐ 强烈推荐)${NC}"
-    echo -e "    ${CYAN}→ 抗审查最强，伪装真实TLS，无需证书${NC}"
-    echo ""
-    echo -e "${GREEN}[2]${NC} Hysteria2"
-    echo -e "    ${CYAN}→ 基于QUIC，速度快，垃圾线路专用，适合高延迟网络${NC}"
-    echo ""
-    echo -e "${GREEN}[3]${NC} SOCKS5"
-    echo -e "    ${CYAN}→ 适合中转的代理协议，只能在落地机上用${NC}"
-    echo ""
-    echo -e "${GREEN}[4]${NC} ShadowTLS v3"
-    echo -e "    ${CYAN}→ TLS流量伪装，支持 Shadowrocket${NC}"
-    echo ""
-    echo -e "${GREEN}[5]${NC} HTTPS"
-    echo -e "    ${CYAN}→ 标准HTTPS，可过CDN${NC}"
-    echo ""
-    echo -e "${GREEN}[6]${NC} AnyTLS ${YELLOW}"
-    echo -e "    ${CYAN}→ 通用TLS协议，支持多客户端自动配置${NC}"
-    echo ""
-    read -p "选择 [1-6]: " choice
-    
-    case $choice in
-        1) setup_reality ;;
-        2) setup_hysteria2 ;;
-        3) setup_socks5 ;;
-        4) setup_shadowtls ;;
-        5) setup_https ;;
-        6) setup_anytls ;;
-        *) print_error "无效选项"; return 1 ;;
-    esac
+    while true; do
+        show_banner
+        echo -e "${YELLOW}请选择要添加的协议节点:${NC}"
+        echo ""
+        echo -e "${GREEN}[1]${NC} VlessReality ${YELLOW}(⭐ 强烈推荐)${NC}"
+        echo -e "    ${CYAN}→ 抗审查最强，伪装真实TLS，无需证书${NC}"
+        echo ""
+        echo -e "${GREEN}[2]${NC} Hysteria2"
+        echo -e "    ${CYAN}→ 基于QUIC，速度快，垃圾线路专用，适合高延迟网络${NC}"
+        echo ""
+        echo -e "${GREEN}[3]${NC} SOCKS5"
+        echo -e "    ${CYAN}→ 适合中转的代理协议，只能在落地机上用${NC}"
+        echo ""
+        echo -e "${GREEN}[4]${NC} ShadowTLS v3"
+        echo -e "    ${CYAN}→ TLS流量伪装，支持 Shadowrocket${NC}"
+        echo ""
+        echo -e "${GREEN}[5]${NC} HTTPS"
+        echo -e "    ${CYAN}→ 标准HTTPS，可过CDN${NC}"
+        echo ""
+        echo -e "${GREEN}[6]${NC} AnyTLS ${YELLOW}"
+        echo -e "    ${CYAN}→ 通用TLS协议，支持多客户端自动配置${NC}"
+        echo ""
+        echo -e "${GREEN}[0]${NC} 返回主菜单"
+        echo ""
+        read -p "选择 [0-6]: " choice
+        
+        case $choice in
+            1) setup_reality ;;
+            2) setup_hysteria2 ;;
+            3) setup_socks5 ;;
+            4) setup_shadowtls ;;
+            5) setup_https ;;
+            6) setup_anytls ;;
+            0) break ;;
+            *) print_error "无效选项"; continue ;;
+        esac
 
-    # 添加节点后立刻生成配置并启动服务，同时输出当前节点信息
-    if [[ -n "$INBOUNDS_JSON" ]]; then
-        generate_config || return 1
-        start_svc || return 1
-        show_result
-    fi
+        # 添加节点后立刻生成配置并启动服务，同时输出当前节点信息
+        if [[ -n "$INBOUNDS_JSON" ]]; then
+            generate_config || return 1
+            start_svc || return 1
+            show_result
+        fi
+    done
 }
 
 show_main_menu() {
